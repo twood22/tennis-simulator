@@ -5,121 +5,302 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tennis Match Simulator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.28.0/feather.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
+    <!-- Background decoration -->
+    <div class="bg-decoration">
+        <div class="bg-circle bg-circle-1"></div>
+        <div class="bg-circle bg-circle-2"></div>
+        <div class="bg-circle bg-circle-3"></div>
+    </div>
+
     <div class="container">
-        <header>
-            <h1>Tennis Match Simulator</h1>
-            <p>Simulate tennis matches using real player statistics</p>
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="tennis-ball"></div>
+                    <h1>TennisAI</h1>
+                </div>
+                <p class="tagline">Advanced Monte Carlo tennis match predictions using real player statistics</p>
+            </div>
         </header>
 
-        <main>
-            <div class="simulation-setup" id="simulationSetup">
-                <div class="form-group">
-                    <label for="player1Select">Player 1:</label>
-                    <select id="player1Select" class="player-select">
-                        <option value="">Loading players...</option>
-                    </select>
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Simulation Setup Card -->
+            <div class="card simulation-card" id="simulationSetup">
+                <div class="card-header">
+                    <h2>
+                        <i data-feather="play-circle"></i>
+                        Match Setup
+                    </h2>
+                    <p>Configure your tennis match simulation</p>
                 </div>
 
-                <div class="form-group">
-                    <label for="player2Select">Player 2:</label>
-                    <select id="player2Select" class="player-select">
-                        <option value="">Loading players...</option>
-                    </select>
-                </div>
+                <div class="card-content">
+                    <div class="form-grid">
+                        <!-- Player Selection -->
+                        <div class="form-section">
+                            <h3>
+                                <i data-feather="users"></i>
+                                Players
+                            </h3>
+                            <div class="player-selectors">
+                                <div class="player-card player-1">
+                                    <div class="player-number">1</div>
+                                    <div class="select-wrapper">
+                                        <select id="player1Select" class="player-select">
+                                            <option value="">Select Player 1</option>
+                                        </select>
+                                        <i data-feather="chevron-down" class="select-icon"></i>
+                                    </div>
+                                </div>
 
-                <div class="form-group">
-                    <label>Surface:</label>
-                    <div class="radio-group">
-                        <label class="radio-label">
-                            <input type="radio" name="surface" value="hard" checked>
-                            <span>Hard Court</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="surface" value="clay">
-                            <span>Clay</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="surface" value="grass">
-                            <span>Grass</span>
-                        </label>
+                                <div class="vs-indicator">
+                                    <span>VS</span>
+                                </div>
+
+                                <div class="player-card player-2">
+                                    <div class="player-number">2</div>
+                                    <div class="select-wrapper">
+                                        <select id="player2Select" class="player-select">
+                                            <option value="">Select Player 2</option>
+                                        </select>
+                                        <i data-feather="chevron-down" class="select-icon"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Surface Selection -->
+                        <div class="form-section">
+                            <h3>
+                                <i data-feather="map"></i>
+                                Surface
+                            </h3>
+                            <div class="surface-options">
+                                <label class="surface-option hard-court active">
+                                    <input type="radio" name="surface" value="hard" checked>
+                                    <div class="surface-icon">🏟️</div>
+                                    <span>Hard Court</span>
+                                    <div class="surface-description">Fast, consistent bounce</div>
+                                </label>
+                                <label class="surface-option clay-court">
+                                    <input type="radio" name="surface" value="clay">
+                                    <div class="surface-icon">🟤</div>
+                                    <span>Clay</span>
+                                    <div class="surface-description">Slow, high bounce</div>
+                                </label>
+                                <label class="surface-option grass-court">
+                                    <input type="radio" name="surface" value="grass">
+                                    <div class="surface-icon">🌱</div>
+                                    <span>Grass</span>
+                                    <div class="surface-description">Fast, low bounce</div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Format Selection -->
+                        <div class="form-section">
+                            <h3>
+                                <i data-feather="target"></i>
+                                Match Format
+                            </h3>
+                            <div class="format-options">
+                                <label class="format-option active">
+                                    <input type="radio" name="format" value="best3" checked>
+                                    <div class="format-content">
+                                        <span class="format-title">Best of 3</span>
+                                        <span class="format-subtitle">First to 2 sets</span>
+                                    </div>
+                                </label>
+                                <label class="format-option">
+                                    <input type="radio" name="format" value="best5">
+                                    <div class="format-content">
+                                        <span class="format-title">Best of 5</span>
+                                        <span class="format-subtitle">First to 3 sets</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label>Match Format:</label>
-                    <div class="radio-group">
-                        <label class="radio-label">
-                            <input type="radio" name="format" value="best3" checked>
-                            <span>Best of 3 Sets</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="format" value="best5">
-                            <span>Best of 5 Sets</span>
-                        </label>
-                    </div>
+                    <button id="simulateBtn" class="simulate-btn" disabled>
+                        <i data-feather="zap"></i>
+                        <span>Run Simulation</span>
+                        <div class="btn-glow"></div>
+                    </button>
                 </div>
-
-                <button id="simulateBtn" class="simulate-btn">Simulate Match</button>
             </div>
 
-            <div class="progress-section" id="progressSection" style="display: none;">
-                <h3>Running Simulation...</h3>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+            <!-- Progress Section -->
+            <div class="card progress-card" id="progressSection" style="display: none;">
+                <div class="card-header">
+                    <h2>
+                        <i data-feather="activity"></i>
+                        Simulation in Progress
+                    </h2>
+                    <p>Running Monte Carlo analysis...</p>
                 </div>
-                <div class="progress-text" id="progressText">0% (0/1000 matches)</div>
+                <div class="card-content">
+                    <div class="progress-container">
+                        <div class="progress-ring">
+                            <svg width="120" height="120">
+                                <circle cx="60" cy="60" r="50" class="progress-ring-bg"></circle>
+                                <circle cx="60" cy="60" r="50" class="progress-ring-fill" id="progressRing"></circle>
+                            </svg>
+                            <div class="progress-percentage" id="progressPercentage">0%</div>
+                        </div>
+                        <div class="progress-info">
+                            <div class="progress-text" id="progressText">0 of 1000 matches completed</div>
+                            <div class="progress-stats">
+                                <div class="stat">
+                                    <span class="stat-label">Speed:</span>
+                                    <span class="stat-value" id="simulationSpeed">-- matches/sec</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">ETA:</span>
+                                    <span class="stat-value" id="simulationETA">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="results-section" id="resultsSection" style="display: none;">
-                <h2>Simulation Results</h2>
-                
-                <div class="warnings" id="warningsSection" style="display: none;">
-                    <div class="warning-box">
-                        <h4>⚠️ Data Warnings:</h4>
-                        <ul id="warningsList"></ul>
+            <!-- Results Section -->
+            <div class="results-grid" id="resultsSection" style="display: none;">
+                <!-- Warnings -->
+                <div class="card warning-card" id="warningsSection" style="display: none;">
+                    <div class="card-header warning-header">
+                        <h3>
+                            <i data-feather="alert-triangle"></i>
+                            Data Fallback Notice
+                        </h3>
+                    </div>
+                    <div class="card-content">
+                        <ul id="warningsList" class="warning-list"></ul>
                     </div>
                 </div>
 
-                <div class="win-probabilities">
-                    <div class="player-result">
-                        <h3 id="player1Name">Player 1</h3>
-                        <div class="win-percentage" id="player1WinPct">0%</div>
-                        <div class="win-record" id="player1Record">0 wins out of 1000</div>
+                <!-- Win Probabilities -->
+                <div class="card results-card">
+                    <div class="card-header">
+                        <h2>
+                            <i data-feather="trophy"></i>
+                            Match Prediction
+                        </h2>
+                        <p>Based on 1,000 simulated matches</p>
                     </div>
-                    <div class="vs-divider">VS</div>
-                    <div class="player-result">
-                        <h3 id="player2Name">Player 2</h3>
-                        <div class="win-percentage" id="player2WinPct">0%</div>
-                        <div class="win-record" id="player2Record">0 wins out of 1000</div>
+                    <div class="card-content">
+                        <div class="players-comparison">
+                            <div class="player-result player-1-result">
+                                <div class="player-avatar">
+                                    <span class="player-initial">1</span>
+                                </div>
+                                <h3 class="player-name" id="player1Name">Player 1</h3>
+                                <div class="win-percentage" id="player1WinPct">0%</div>
+                                <div class="win-record" id="player1Record">0 wins out of 1000</div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" id="player1Confidence"></div>
+                                </div>
+                            </div>
+
+                            <div class="vs-section">
+                                <div class="vs-circle">VS</div>
+                                <div class="match-details">
+                                    <span class="surface-indicator" id="matchSurface">Hard Court</span>
+                                    <span class="format-indicator" id="matchFormat">Best of 3</span>
+                                </div>
+                            </div>
+
+                            <div class="player-result player-2-result">
+                                <div class="player-avatar">
+                                    <span class="player-initial">2</span>
+                                </div>
+                                <h3 class="player-name" id="player2Name">Player 2</h3>
+                                <div class="win-percentage" id="player2WinPct">0%</div>
+                                <div class="win-record" id="player2Record">0 wins out of 1000</div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" id="player2Confidence"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="set-distribution">
-                    <h3>Set Score Distribution</h3>
-                    <canvas id="setChart" width="400" height="200"></canvas>
+                <!-- Set Distribution Chart -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>
+                            <i data-feather="bar-chart-2"></i>
+                            Set Score Distribution
+                        </h3>
+                        <p>Frequency of different set scores</p>
+                    </div>
+                    <div class="card-content">
+                        <div class="chart-container">
+                            <canvas id="setChart"></canvas>
+                        </div>
+                    </div>
                 </div>
 
-                <button id="runAnotherBtn" class="run-another-btn">Run Another Simulation</button>
+                <!-- Action Buttons -->
+                <div class="card action-card">
+                    <div class="card-content">
+                        <button id="runAnotherBtn" class="secondary-btn">
+                            <i data-feather="refresh-cw"></i>
+                            Run Another Simulation
+                        </button>
+                        <button class="tertiary-btn">
+                            <i data-feather="download"></i>
+                            Export Results
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <div class="error-section" id="errorSection" style="display: none;">
-                <div class="error-box">
-                    <h3>Error</h3>
-                    <p id="errorMessage"></p>
-                    <button id="retryBtn" class="retry-btn">Try Again</button>
+            <!-- Error Section -->
+            <div class="card error-card" id="errorSection" style="display: none;">
+                <div class="card-header error-header">
+                    <h3>
+                        <i data-feather="x-circle"></i>
+                        Simulation Error
+                    </h3>
+                </div>
+                <div class="card-content">
+                    <p id="errorMessage" class="error-message"></p>
+                    <button id="retryBtn" class="secondary-btn">
+                        <i data-feather="refresh-cw"></i>
+                        Try Again
+                    </button>
                 </div>
             </div>
         </main>
 
-        <footer>
-            <p>Player statistics provided by <a href="https://tennisabstract.com" target="_blank">Tennis Abstract</a></p>
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>Player statistics provided by <a href="https://tennisabstract.com" target="_blank">Tennis Abstract</a></p>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">About</a>
+                    <a href="#" class="footer-link">Privacy</a>
+                    <a href="#" class="footer-link">API</a>
+                </div>
+            </div>
         </footer>
     </div>
 
+    <script>
+        // Initialize Feather icons
+        feather.replace();
+    </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
