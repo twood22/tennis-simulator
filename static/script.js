@@ -4,10 +4,12 @@ class TennisSimulator {
         this.players = [];
         this.currentChart = null;
         this.isSimulating = false;
+        this.startTime = null;
         
         this.initializeElements();
         this.setupEventListeners();
         this.loadPlayers();
+        this.setupUIInteractions();
     }
     
     initializeElements() {
@@ -25,9 +27,12 @@ class TennisSimulator {
         this.errorSection = document.getElementById('errorSection');
         this.warningsSection = document.getElementById('warningsSection');
         
-        // Progress elements
-        this.progressFill = document.getElementById('progressFill');
+        // Progress elements (updated for new design)
+        this.progressRing = document.getElementById('progressRing');
+        this.progressPercentage = document.getElementById('progressPercentage');
         this.progressText = document.getElementById('progressText');
+        this.simulationSpeed = document.getElementById('simulationSpeed');
+        this.simulationETA = document.getElementById('simulationETA');
         
         // Results elements
         this.player1Name = document.getElementById('player1Name');
@@ -36,6 +41,10 @@ class TennisSimulator {
         this.player2WinPct = document.getElementById('player2WinPct');
         this.player1Record = document.getElementById('player1Record');
         this.player2Record = document.getElementById('player2Record');
+        this.player1Confidence = document.getElementById('player1Confidence');
+        this.player2Confidence = document.getElementById('player2Confidence');
+        this.matchSurface = document.getElementById('matchSurface');
+        this.matchFormat = document.getElementById('matchFormat');
         this.warningsList = document.getElementById('warningsList');
         this.errorMessage = document.getElementById('errorMessage');
         
@@ -56,6 +65,7 @@ class TennisSimulator {
         
         this.socket.on('simulation_started', (data) => {
             console.log('Simulation started:', data.status);
+            this.startTime = Date.now();
         });
         
         this.socket.on('simulation_progress', (data) => {
@@ -73,6 +83,59 @@ class TennisSimulator {
         // Player selection change listeners
         this.player1Select.addEventListener('change', () => this.validateForm());
         this.player2Select.addEventListener('change', () => this.validateForm());
+    }
+    
+    setupUIInteractions() {
+        // Surface option interactions
+        const surfaceOptions = document.querySelectorAll('.surface-option');
+        surfaceOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                surfaceOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                const radio = option.querySelector('input[type="radio"]');
+                radio.checked = true;
+            });
+        });
+        
+        // Format option interactions
+        const formatOptions = document.querySelectorAll('.format-option');
+        formatOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                formatOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                const radio = option.querySelector('input[type="radio"]');
+                radio.checked = true;
+            });
+        });
+        
+        // Add SVG gradient definition for progress ring
+        this.addProgressGradient();
+    }
+    
+    addProgressGradient() {
+        const svg = this.progressRing.closest('svg');
+        if (svg && !svg.querySelector('defs')) {
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+            gradient.setAttribute('id', 'progressGradient');
+            gradient.setAttribute('x1', '0%');
+            gradient.setAttribute('y1', '0%');
+            gradient.setAttribute('x2', '100%');
+            gradient.setAttribute('y2', '0%');
+            
+            const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop1.setAttribute('offset', '0%');
+            stop1.setAttribute('stop-color', '#667eea');
+            
+            const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop2.setAttribute('offset', '100%');
+            stop2.setAttribute('stop-color', '#764ba2');
+            
+            gradient.appendChild(stop1);
+            gradient.appendChild(stop2);
+            defs.appendChild(gradient);
+            svg.appendChild(defs);
+        }
     }
     
     async loadPlayers() {
@@ -162,8 +225,32 @@ class TennisSimulator {
     }
     
     updateProgress(completed, total, progress) {
-        this.progressFill.style.width = `${progress}%`;
-        this.progressText.textContent = `${Math.round(progress)}% (${completed}/${total} matches)`;
+        // Update circular progress ring
+        const circumference = 2 * Math.PI * 50; // radius = 50
+        const offset = circumference - (progress / 100) * circumference;
+        this.progressRing.style.strokeDashoffset = offset;
+        
+        // Update progress text
+        this.progressPercentage.textContent = `${Math.round(progress)}%`;
+        this.progressText.textContent = `${completed} of ${total} matches completed`;
+        
+        // Calculate and display speed and ETA
+        if (this.startTime && completed > 0) {
+            const elapsed = (Date.now() - this.startTime) / 1000; // seconds
+            const speed = completed / elapsed;
+            const remaining = total - completed;
+            const eta = remaining / speed;
+            
+            this.simulationSpeed.textContent = `${speed.toFixed(1)} matches/sec`;
+            
+            if (eta < 60) {
+                this.simulationETA.textContent = `${Math.round(eta)}s`;
+            } else {
+                const minutes = Math.floor(eta / 60);
+                const seconds = Math.round(eta % 60);
+                this.simulationETA.textContent = `${minutes}m ${seconds}s`;
+            }
+        }
     }
     
     displayResults(data) {
@@ -178,12 +265,24 @@ class TennisSimulator {
         this.player2Name.textContent = formData.player2;
         
         // Update win percentages
-        this.player1WinPct.textContent = `${(data.player1_win_pct * 100).toFixed(1)}%`;
-        this.player2WinPct.textContent = `${(data.player2_win_pct * 100).toFixed(1)}%`;
+        const p1WinPct = data.player1_win_pct * 100;
+        const p2WinPct = data.player2_win_pct * 100;
+        this.player1WinPct.textContent = `${p1WinPct.toFixed(1)}%`;
+        this.player2WinPct.textContent = `${p2WinPct.toFixed(1)}%`;
         
         // Update win records
         this.player1Record.textContent = `${data.player1_wins} wins out of ${data.total_simulations}`;
         this.player2Record.textContent = `${data.player2_wins} wins out of ${data.total_simulations}`;
+        
+        // Update confidence bars
+        this.player1Confidence.style.width = `${p1WinPct}%`;
+        this.player2Confidence.style.width = `${p2WinPct}%`;
+        
+        // Update match details
+        const surfaceNames = { hard: 'Hard Court', clay: 'Clay', grass: 'Grass' };
+        const formatNames = { best3: 'Best of 3', best5: 'Best of 5' };
+        this.matchSurface.textContent = surfaceNames[formData.surface];
+        this.matchFormat.textContent = formatNames[formData.format];
         
         // Display warnings if any
         if (data.fallback_warnings && data.fallback_warnings.length > 0) {
@@ -223,18 +322,30 @@ class TennisSimulator {
                 datasets: [{
                     label: 'Number of Matches',
                     data: data,
-                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    borderWidth: 1
+                    backgroundColor: labels.map((_, index) => 
+                        `hsla(${240 + index * 30}, 70%, 60%, 0.8)`
+                    ),
+                    borderColor: labels.map((_, index) => 
+                        `hsla(${240 + index * 30}, 70%, 50%, 1)`
+                    ),
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: '#667eea',
+                        borderWidth: 1,
                         callbacks: {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -248,15 +359,44 @@ class TennisSimulator {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            stepSize: 1
+                            stepSize: 1,
+                            color: '#6b7280',
+                            font: {
+                                family: 'Inter',
+                                size: 12
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(107, 114, 128, 0.1)',
+                            drawBorder: false
                         }
                     },
                     x: {
                         title: {
                             display: true,
-                            text: 'Final Set Score'
+                            text: 'Final Set Score',
+                            color: '#374151',
+                            font: {
+                                family: 'Inter',
+                                size: 14,
+                                weight: 600
+                            }
+                        },
+                        ticks: {
+                            color: '#6b7280',
+                            font: {
+                                family: 'Inter',
+                                size: 12
+                            }
+                        },
+                        grid: {
+                            display: false
                         }
                     }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
                 }
             }
         });
@@ -279,8 +419,12 @@ class TennisSimulator {
         this.validateForm();
         
         // Reset progress
-        this.progressFill.style.width = '0%';
-        this.progressText.textContent = '0% (0/1000 matches)';
+        this.progressRing.style.strokeDashoffset = '314';
+        this.progressPercentage.textContent = '0%';
+        this.progressText.textContent = '0 of 1000 matches completed';
+        this.simulationSpeed.textContent = '-- matches/sec';
+        this.simulationETA.textContent = '--';
+        this.startTime = null;
     }
     
     hideAllSections() {
