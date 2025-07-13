@@ -78,31 +78,28 @@
                             </div>
                         </div>
 
-                        <!-- Surface Selection -->
+                        <!-- Simulation Settings -->
                         <div class="form-section">
                             <h3>
-                                <i data-feather="map"></i>
-                                Surface
+                                <i data-feather="settings"></i>
+                                Simulation Settings
                             </h3>
-                            <div class="surface-options">
-                                <label class="surface-option hard-court active">
-                                    <input type="radio" name="surface" value="hard" checked>
-                                    <div class="surface-icon">🏟️</div>
-                                    <span>Hard Court</span>
-                                    <div class="surface-description">Fast, consistent bounce</div>
-                                </label>
-                                <label class="surface-option clay-court">
-                                    <input type="radio" name="surface" value="clay">
-                                    <div class="surface-icon">🟤</div>
-                                    <span>Clay</span>
-                                    <div class="surface-description">Slow, high bounce</div>
-                                </label>
-                                <label class="surface-option grass-court">
-                                    <input type="radio" name="surface" value="grass">
-                                    <div class="surface-icon">🌱</div>
-                                    <span>Grass</span>
-                                    <div class="surface-description">Fast, low bounce</div>
-                                </label>
+                            <div class="simulation-settings">
+                                <div class="setting-group">
+                                    <label for="numTrials">Number of Trials:</label>
+                                    <div class="number-input-wrapper">
+                                        <input type="number" id="numTrials" min="1" max="10000" value="1000" class="number-input">
+                                        <div class="input-controls">
+                                            <button type="button" class="input-btn" id="decreaseTrials">
+                                                <i data-feather="minus"></i>
+                                            </button>
+                                            <button type="button" class="input-btn" id="increaseTrials">
+                                                <i data-feather="plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="setting-description">Run simulations across all surfaces (Hard, Clay, Grass)</div>
+                                </div>
                             </div>
                         </div>
 
@@ -174,8 +171,150 @@
                 </div>
             </div>
 
-            <!-- Results Section -->
-            <div class="results-grid" id="resultsSection" style="display: none;">
+            <!-- Unified Results Dashboard -->
+            <div class="results-dashboard" id="resultsSection" style="display: none;">
+                <!-- Results Overview -->
+                <div class="card overview-card">
+                    <div class="card-header">
+                        <h2>
+                            <i data-feather="activity"></i>
+                            Simulation Results
+                        </h2>
+                        <p id="simulationSummary">Analysis across all court surfaces</p>
+                    </div>
+                    <div class="card-content">
+                        <div class="players-overview">
+                            <div class="player-summary">
+                                <div class="player-avatar">
+                                    <span class="player-initial">1</span>
+                                </div>
+                                <h3 class="player-name" id="player1Name">Player 1</h3>
+                            </div>
+                            <div class="vs-section">
+                                <div class="vs-circle">VS</div>
+                                <div class="match-format" id="matchFormat">Best of 3</div>
+                            </div>
+                            <div class="player-summary">
+                                <div class="player-avatar">
+                                    <span class="player-initial">2</span>
+                                </div>
+                                <h3 class="player-name" id="player2Name">Player 2</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Surface Results Grid -->
+                <div class="surfaces-grid">
+                    <!-- Hard Court Results -->
+                    <div class="card surface-card hard-court-card">
+                        <div class="card-header">
+                            <h3>
+                                <span class="surface-emoji">🏟️</span>
+                                Hard Court
+                            </h3>
+                            <p>Fast, consistent bounce</p>
+                        </div>
+                        <div class="card-content">
+                            <div class="surface-results" id="hardResults">
+                                <div class="win-probabilities">
+                                    <div class="player-result">
+                                        <div class="player-name-surface" id="hardPlayer1Name">Player 1</div>
+                                        <div class="win-percentage" id="hardPlayer1Pct">0%</div>
+                                        <div class="win-record" id="hardPlayer1Record">0 wins</div>
+                                    </div>
+                                    <div class="player-result">
+                                        <div class="player-name-surface" id="hardPlayer2Name">Player 2</div>
+                                        <div class="win-percentage" id="hardPlayer2Pct">0%</div>
+                                        <div class="win-record" id="hardPlayer2Record">0 wins</div>
+                                    </div>
+                                </div>
+                                <div class="set-distribution-mini">
+                                    <canvas id="hardChart" width="200" height="100"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clay Court Results -->
+                    <div class="card surface-card clay-court-card">
+                        <div class="card-header">
+                            <h3>
+                                <span class="surface-emoji">🟤</span>
+                                Clay Court
+                            </h3>
+                            <p>Slow, high bounce</p>
+                        </div>
+                        <div class="card-content">
+                            <div class="surface-results" id="clayResults">
+                                <div class="win-probabilities">
+                                    <div class="player-result">
+                                        <div class="player-name-surface" id="clayPlayer1Name">Player 1</div>
+                                        <div class="win-percentage" id="clayPlayer1Pct">0%</div>
+                                        <div class="win-record" id="clayPlayer1Record">0 wins</div>
+                                    </div>
+                                    <div class="player-result">
+                                        <div class="player-name-surface" id="clayPlayer2Name">Player 2</div>
+                                        <div class="win-percentage" id="clayPlayer2Pct">0%</div>
+                                        <div class="win-record" id="clayPlayer2Record">0 wins</div>
+                                    </div>
+                                </div>
+                                <div class="set-distribution-mini">
+                                    <canvas id="clayChart" width="200" height="100"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grass Court Results -->
+                    <div class="card surface-card grass-court-card">
+                        <div class="card-header">
+                            <h3>
+                                <span class="surface-emoji">🌱</span>
+                                Grass Court
+                            </h3>
+                            <p>Fast, low bounce</p>
+                        </div>
+                        <div class="card-content">
+                            <div class="surface-results" id="grassResults">
+                                <div class="win-probabilities">
+                                    <div class="player-result">
+                                        <div class="player-name-surface" id="grassPlayer1Name">Player 1</div>
+                                        <div class="win-percentage" id="grassPlayer1Pct">0%</div>
+                                        <div class="win-record" id="grassPlayer1Record">0 wins</div>
+                                    </div>
+                                    <div class="player-result">
+                                        <div class="player-name-surface" id="grassPlayer2Name">Player 2</div>
+                                        <div class="win-percentage" id="grassPlayer2Pct">0%</div>
+                                        <div class="win-record" id="grassPlayer2Record">0 wins</div>
+                                    </div>
+                                </div>
+                                <div class="set-distribution-mini">
+                                    <canvas id="grassChart" width="200" height="100"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parameter Comparison Table -->
+                <div class="card parameters-card">
+                    <div class="card-header">
+                        <h3>
+                            <i data-feather="trending-up"></i>
+                            Parameter Analysis
+                        </h3>
+                        <p>Expected vs Observed Performance Metrics - Side-by-Side Player Comparison</p>
+                    </div>
+                    <div class="card-content">
+                        <div class="parameters-table-container">
+                            <div id="parametersContent">
+                                <!-- Dynamic content will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Warnings -->
                 <div class="card warning-card" id="warningsSection" style="display: none;">
                     <div class="card-header warning-header">
@@ -186,68 +325,6 @@
                     </div>
                     <div class="card-content">
                         <ul id="warningsList" class="warning-list"></ul>
-                    </div>
-                </div>
-
-                <!-- Win Probabilities -->
-                <div class="card results-card">
-                    <div class="card-header">
-                        <h2>
-                            <i data-feather="trophy"></i>
-                            Match Prediction
-                        </h2>
-                        <p>Based on 1,000 simulated matches</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="players-comparison">
-                            <div class="player-result player-1-result">
-                                <div class="player-avatar">
-                                    <span class="player-initial">1</span>
-                                </div>
-                                <h3 class="player-name" id="player1Name">Player 1</h3>
-                                <div class="win-percentage" id="player1WinPct">0%</div>
-                                <div class="win-record" id="player1Record">0 wins out of 1000</div>
-                                <div class="confidence-bar">
-                                    <div class="confidence-fill" id="player1Confidence"></div>
-                                </div>
-                            </div>
-
-                            <div class="vs-section">
-                                <div class="vs-circle">VS</div>
-                                <div class="match-details">
-                                    <span class="surface-indicator" id="matchSurface">Hard Court</span>
-                                    <span class="format-indicator" id="matchFormat">Best of 3</span>
-                                </div>
-                            </div>
-
-                            <div class="player-result player-2-result">
-                                <div class="player-avatar">
-                                    <span class="player-initial">2</span>
-                                </div>
-                                <h3 class="player-name" id="player2Name">Player 2</h3>
-                                <div class="win-percentage" id="player2WinPct">0%</div>
-                                <div class="win-record" id="player2Record">0 wins out of 1000</div>
-                                <div class="confidence-bar">
-                                    <div class="confidence-fill" id="player2Confidence"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Set Distribution Chart -->
-                <div class="card chart-card">
-                    <div class="card-header">
-                        <h3>
-                            <i data-feather="bar-chart-2"></i>
-                            Set Score Distribution
-                        </h3>
-                        <p>Frequency of different set scores</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="setChart"></canvas>
-                        </div>
                     </div>
                 </div>
 
