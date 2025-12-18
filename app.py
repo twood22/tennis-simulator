@@ -174,6 +174,7 @@ def handle_disconnect():
 @socketio.on('start_simulation')
 def handle_simulation_request(data):
     """Handle unified simulation request via WebSocket"""
+    print(f"[DEBUG] Received start_simulation event with data: {data}")
     try:
         # Validate input
         required_fields = ['player1', 'player2', 'format', 'num_simulations']
@@ -201,12 +202,14 @@ def handle_simulation_request(data):
         
         # Run simulations for all surfaces in a separate thread
         def run_simulation():
+            print("[DEBUG] Simulation thread started")
             try:
                 surfaces = ['hard', 'clay', 'grass']
                 all_results = {}
                 all_fallback_warnings = []
-                
+
                 for surface in surfaces:
+                    print(f"[DEBUG] Processing surface: {surface}")
                     try:
                         p1_stats, p1_fallback = data_loader.get_player_stats(player1_name, surface)
                         p2_stats, p2_fallback = data_loader.get_player_stats(player2_name, surface)
@@ -222,18 +225,24 @@ def handle_simulation_request(data):
                             if warning:
                                 surface_warnings.append(warning)
                         
-                        # Progress callback function
-                        def progress_callback(completed, total):
-                            surface_index = surfaces.index(surface)
-                            overall_completed = (surface_index * num_simulations) + completed
-                            overall_total = len(surfaces) * num_simulations
-                            progress_pct = (overall_completed / overall_total) * 100
-                            socketio.emit('simulation_progress', {
-                                'completed': overall_completed,
-                                'total': overall_total,
-                                'progress': progress_pct,
-                                'current_surface': surface
-                            }, to=session_id)
+                        # Progress callback function - capture current surface value
+                        current_surface = surface
+                        surface_index = surfaces.index(current_surface)
+
+                        def make_progress_callback(surf, surf_idx):
+                            def progress_callback(completed, total):
+                                overall_completed = (surf_idx * num_simulations) + completed
+                                overall_total = len(surfaces) * num_simulations
+                                progress_pct = (overall_completed / overall_total) * 100
+                                socketio.emit('simulation_progress', {
+                                    'completed': overall_completed,
+                                    'total': overall_total,
+                                    'progress': progress_pct,
+                                    'current_surface': surf
+                                }, to=session_id)
+                            return progress_callback
+
+                        progress_callback = make_progress_callback(current_surface, surface_index)
                         
                         # Always track detailed stats for parameter comparison
                         track_detailed = True
@@ -299,16 +308,19 @@ def handle_simulation_request(data):
                     "fallback_warnings": all_fallback_warnings
                 }
                 
+                print("[DEBUG] Emitting simulation_complete event")
                 socketio.emit('simulation_complete', response, to=session_id)
-                
+                print("[DEBUG] Simulation complete event emitted successfully")
+
             except Exception as e:
+                print(f"[DEBUG] Simulation error: {str(e)}")
                 socketio.emit('simulation_error', {"error": f"Simulation failed: {str(e)}"}, to=session_id)
         
-        # Start simulation in background thread
-        thread = threading.Thread(target=run_simulation)
-        thread.daemon = True
-        thread.start()
-        
+        # Start simulation in background thread using socketio's background task
+        print(f"[DEBUG] Starting simulation thread for {player1_name} vs {player2_name}")
+        socketio.start_background_task(run_simulation)
+
+        print("[DEBUG] Emitting simulation_started event")
         emit('simulation_started', {'status': 'Simulation started'})
         
     except Exception as e:

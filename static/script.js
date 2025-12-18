@@ -96,19 +96,22 @@ class TennisSimulator {
         });
         
         this.socket.on('simulation_started', (data) => {
-            console.log('Simulation started:', data.status);
+            console.log('[DEBUG] Received simulation_started:', data);
             this.startTime = Date.now();
         });
-        
+
         this.socket.on('simulation_progress', (data) => {
+            console.log('[DEBUG] Received simulation_progress:', data.progress + '%');
             this.updateProgress(data.completed, data.total, data.progress);
         });
-        
+
         this.socket.on('simulation_complete', (data) => {
+            console.log('[DEBUG] Received simulation_complete');
             this.displayResults(data);
         });
-        
+
         this.socket.on('simulation_error', (data) => {
+            console.log('[DEBUG] Received simulation_error:', data.error);
             this.displayError(data.error);
         });
         
@@ -227,7 +230,8 @@ class TennisSimulator {
     
     adjustTrialCount(delta) {
         const current = parseInt(this.numTrialsInput.value);
-        const newValue = Math.max(1, Math.min(10000, current + delta));
+        const step = 100; // Adjust by 100 each click
+        const newValue = Math.max(100, Math.min(10000, current + (delta * step)));
         this.numTrialsInput.value = newValue;
         this.validateTrialCount();
     }
@@ -260,9 +264,11 @@ class TennisSimulator {
         this.hideAllSections();
         this.showProgressSection();
         this.disableForm();
-        
+
         // Start simulation via WebSocket
+        console.log('[DEBUG] Emitting start_simulation event:', formData);
         this.socket.emit('start_simulation', formData);
+        console.log('[DEBUG] Event emitted');
     }
     
     updateProgress(completed, total, progress) {

@@ -4,20 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tennis Match Simulator</title>
+    <meta name="description" content="Monte Carlo tennis match simulator using real player statistics">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.28.0/feather.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
-    <!-- Background decoration -->
-    <div class="bg-decoration">
-        <div class="bg-circle bg-circle-1"></div>
-        <div class="bg-circle bg-circle-2"></div>
-        <div class="bg-circle bg-circle-3"></div>
-    </div>
+    <div class="bg-decoration"></div>
 
     <div class="container">
         <!-- Header -->
@@ -25,9 +22,9 @@
             <div class="header-content">
                 <div class="logo">
                     <div class="tennis-ball"></div>
-                    <h1>TennisAI</h1>
+                    <h1>Tennis Simulator</h1>
                 </div>
-                <p class="tagline">Advanced Monte Carlo tennis match predictions using real player statistics</p>
+                <p class="tagline">Monte Carlo match predictions using real player statistics</p>
             </div>
         </header>
 
@@ -40,7 +37,7 @@
                         <i data-feather="play-circle"></i>
                         Match Setup
                     </h2>
-                    <p>Configure your tennis match simulation</p>
+                    <p>Select two players and configure your simulation</p>
                 </div>
 
                 <div class="card-content">
@@ -78,60 +75,59 @@
                             </div>
                         </div>
 
-                        <!-- Simulation Settings -->
+                        <!-- Format and Trials Row -->
                         <div class="form-section">
                             <h3>
-                                <i data-feather="settings"></i>
-                                Simulation Settings
+                                <i data-feather="sliders"></i>
+                                Settings
                             </h3>
-                            <div class="simulation-settings">
-                                <div class="setting-group">
-                                    <label for="numTrials">Number of Trials:</label>
-                                    <div class="number-input-wrapper">
-                                        <input type="number" id="numTrials" min="1" max="10000" value="1000" class="number-input">
-                                        <div class="input-controls">
-                                            <button type="button" class="input-btn" id="decreaseTrials">
-                                                <i data-feather="minus"></i>
-                                            </button>
-                                            <button type="button" class="input-btn" id="increaseTrials">
-                                                <i data-feather="plus"></i>
-                                            </button>
-                                        </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                                <!-- Format Selection -->
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 0.5rem;">Match Format</label>
+                                    <div class="format-options">
+                                        <label class="format-option active">
+                                            <input type="radio" name="format" value="best3" checked>
+                                            <div class="format-content">
+                                                <span class="format-title">Best of 3</span>
+                                                <span class="format-subtitle">First to 2 sets</span>
+                                            </div>
+                                        </label>
+                                        <label class="format-option">
+                                            <input type="radio" name="format" value="best5">
+                                            <div class="format-content">
+                                                <span class="format-title">Best of 5</span>
+                                                <span class="format-subtitle">First to 3 sets</span>
+                                            </div>
+                                        </label>
                                     </div>
-                                    <div class="setting-description">Run simulations across all surfaces (Hard, Clay, Grass)</div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <!-- Format Selection -->
-                        <div class="form-section">
-                            <h3>
-                                <i data-feather="target"></i>
-                                Match Format
-                            </h3>
-                            <div class="format-options">
-                                <label class="format-option active">
-                                    <input type="radio" name="format" value="best3" checked>
-                                    <div class="format-content">
-                                        <span class="format-title">Best of 3</span>
-                                        <span class="format-subtitle">First to 2 sets</span>
+                                <!-- Simulation Settings -->
+                                <div class="simulation-settings">
+                                    <div class="setting-group">
+                                        <label for="numTrials">Number of Simulations</label>
+                                        <div class="number-input-wrapper">
+                                            <input type="number" id="numTrials" min="100" max="10000" value="1000" step="100" class="number-input">
+                                            <div class="input-controls">
+                                                <button type="button" class="input-btn" id="increaseTrials">
+                                                    <i data-feather="plus"></i>
+                                                </button>
+                                                <button type="button" class="input-btn" id="decreaseTrials">
+                                                    <i data-feather="minus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="setting-description">Simulations run on Hard, Clay, and Grass courts</div>
                                     </div>
-                                </label>
-                                <label class="format-option">
-                                    <input type="radio" name="format" value="best5">
-                                    <div class="format-content">
-                                        <span class="format-title">Best of 5</span>
-                                        <span class="format-subtitle">First to 3 sets</span>
-                                    </div>
-                                </label>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <button id="simulateBtn" class="simulate-btn" disabled>
-                        <i data-feather="zap"></i>
+                        <i data-feather="play"></i>
                         <span>Run Simulation</span>
-                        <div class="btn-glow"></div>
                     </button>
                 </div>
             </div>
@@ -143,7 +139,7 @@
                         <i data-feather="activity"></i>
                         Simulation in Progress
                     </h2>
-                    <p>Running Monte Carlo analysis...</p>
+                    <p>Running Monte Carlo analysis across all surfaces...</p>
                 </div>
                 <div class="card-content">
                     <div class="progress-container">
@@ -155,14 +151,14 @@
                             <div class="progress-percentage" id="progressPercentage">0%</div>
                         </div>
                         <div class="progress-info">
-                            <div class="progress-text" id="progressText">0 of 1000 matches completed</div>
+                            <div class="progress-text" id="progressText">0 of 3000 matches completed</div>
                             <div class="progress-stats">
                                 <div class="stat">
-                                    <span class="stat-label">Speed:</span>
+                                    <span class="stat-label">Speed</span>
                                     <span class="stat-value" id="simulationSpeed">-- matches/sec</span>
                                 </div>
                                 <div class="stat">
-                                    <span class="stat-label">ETA:</span>
+                                    <span class="stat-label">ETA</span>
                                     <span class="stat-value" id="simulationETA">--</span>
                                 </div>
                             </div>
@@ -171,13 +167,13 @@
                 </div>
             </div>
 
-            <!-- Unified Results Dashboard -->
+            <!-- Results Dashboard -->
             <div class="results-dashboard" id="resultsSection" style="display: none;">
                 <!-- Results Overview -->
                 <div class="card overview-card">
                     <div class="card-header">
                         <h2>
-                            <i data-feather="activity"></i>
+                            <i data-feather="bar-chart-2"></i>
                             Simulation Results
                         </h2>
                         <p id="simulationSummary">Analysis across all court surfaces</p>
@@ -206,11 +202,11 @@
 
                 <!-- Surface Results Grid -->
                 <div class="surfaces-grid">
-                    <!-- Hard Court Results -->
+                    <!-- Hard Court -->
                     <div class="card surface-card hard-court-card">
                         <div class="card-header">
                             <h3>
-                                <span class="surface-emoji">🏟️</span>
+                                <span class="surface-emoji">&#127967;</span>
                                 Hard Court
                             </h3>
                             <p>Fast, consistent bounce</p>
@@ -230,17 +226,17 @@
                                     </div>
                                 </div>
                                 <div class="set-distribution-mini">
-                                    <canvas id="hardChart" width="200" height="100"></canvas>
+                                    <canvas id="hardChart"></canvas>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Clay Court Results -->
+                    <!-- Clay Court -->
                     <div class="card surface-card clay-court-card">
                         <div class="card-header">
                             <h3>
-                                <span class="surface-emoji">🟤</span>
+                                <span class="surface-emoji">&#129703;</span>
                                 Clay Court
                             </h3>
                             <p>Slow, high bounce</p>
@@ -260,17 +256,17 @@
                                     </div>
                                 </div>
                                 <div class="set-distribution-mini">
-                                    <canvas id="clayChart" width="200" height="100"></canvas>
+                                    <canvas id="clayChart"></canvas>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Grass Court Results -->
+                    <!-- Grass Court -->
                     <div class="card surface-card grass-court-card">
                         <div class="card-header">
                             <h3>
-                                <span class="surface-emoji">🌱</span>
+                                <span class="surface-emoji">&#127793;</span>
                                 Grass Court
                             </h3>
                             <p>Fast, low bounce</p>
@@ -290,7 +286,7 @@
                                     </div>
                                 </div>
                                 <div class="set-distribution-mini">
-                                    <canvas id="grassChart" width="200" height="100"></canvas>
+                                    <canvas id="grassChart"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -304,13 +300,11 @@
                             <i data-feather="trending-up"></i>
                             Parameter Analysis
                         </h3>
-                        <p>Expected vs Observed Performance Metrics - Side-by-Side Player Comparison</p>
+                        <p>Expected vs Observed Performance Metrics</p>
                     </div>
                     <div class="card-content">
                         <div class="parameters-table-container">
-                            <div id="parametersContent">
-                                <!-- Dynamic content will be inserted here -->
-                            </div>
+                            <div id="parametersContent"></div>
                         </div>
                     </div>
                 </div>
@@ -320,7 +314,7 @@
                     <div class="card-header warning-header">
                         <h3>
                             <i data-feather="alert-triangle"></i>
-                            Data Fallback Notice
+                            Data Notice
                         </h3>
                     </div>
                     <div class="card-content">
@@ -333,11 +327,7 @@
                     <div class="card-content">
                         <button id="runAnotherBtn" class="secondary-btn">
                             <i data-feather="refresh-cw"></i>
-                            Run Another Simulation
-                        </button>
-                        <button class="tertiary-btn">
-                            <i data-feather="download"></i>
-                            Export Results
+                            New Simulation
                         </button>
                     </div>
                 </div>
@@ -348,7 +338,7 @@
                 <div class="card-header error-header">
                     <h3>
                         <i data-feather="x-circle"></i>
-                        Simulation Error
+                        Error
                     </h3>
                 </div>
                 <div class="card-content">
@@ -364,18 +354,15 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">
-                <p>Player statistics provided by <a href="https://tennisabstract.com" target="_blank">Tennis Abstract</a></p>
+                <p>Statistics from <a href="https://tennisabstract.com" target="_blank" rel="noopener">Tennis Abstract</a></p>
                 <div class="footer-links">
-                    <a href="#" class="footer-link">About</a>
-                    <a href="#" class="footer-link">Privacy</a>
-                    <a href="#" class="footer-link">API</a>
+                    <a href="https://github.com" class="footer-link" target="_blank" rel="noopener">GitHub</a>
                 </div>
             </div>
         </footer>
     </div>
 
     <script>
-        // Initialize Feather icons
         feather.replace();
     </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

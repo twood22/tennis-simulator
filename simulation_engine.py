@@ -271,16 +271,19 @@ class TennisSimulator:
         score = GameScore()
         
         while True:
-            # Check if this is a break point
+            # Check if this is a break point (returner can win game on next point)
+            # Break point occurs when returner has 40+ (score >= 3) AND is ahead
             is_break_point = False
             if server_player == 1:
                 # Player 1 serving, break point if Player 2 can win the game
-                is_break_point = (score.player1_score >= 3 and 
-                                score.player2_score >= score.player1_score)
+                # Returner (P2) needs score >= 3 (40 or Ad) AND must be ahead
+                is_break_point = (score.player2_score >= 3 and
+                                score.player2_score > score.player1_score)
             else:
                 # Player 2 serving, break point if Player 1 can win the game
-                is_break_point = (score.player2_score >= 3 and 
-                                score.player1_score >= score.player2_score)
+                # Returner (P1) needs score >= 3 (40 or Ad) AND must be ahead
+                is_break_point = (score.player1_score >= 3 and
+                                score.player1_score > score.player2_score)
             
             # Simulate the point
             server_wins = self.simulate_point(server_stats, returner_stats, is_break_point, server_player, match_stats)

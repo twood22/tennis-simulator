@@ -5,120 +5,114 @@ A web-based tennis match simulator that uses real player statistics to run Monte
 ## Features
 
 - **Real Player Statistics**: Uses data from Tennis Abstract covering serve, return, break point, and match statistics
-- **Surface-Specific Simulation**: Simulates matches on hard court, clay, and grass surfaces
-- **Monte Carlo Analysis**: Runs 1000 match simulations to provide statistical predictions
+- **Multi-Surface Analysis**: Simulates matches on hard court, clay, and grass surfaces simultaneously
+- **Monte Carlo Analysis**: Runs configurable simulations (100-10,000) for statistical predictions
 - **Real-Time Progress**: WebSocket-powered progress updates during simulation
-- **Interactive Visualization**: Charts showing set score distributions
+- **Interactive Visualization**: Charts showing set score distributions for each surface
+- **Parameter Analysis**: Compare expected vs observed statistics
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 
-## Setup Instructions
+## Quick Start
 
-### Prerequisites
-- Python 3.9 or higher
-- Poetry (Python dependency manager)
+### Option 1: Using pip (Recommended)
 
-### Installation
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/tennis-simulator.git
+cd tennis-simulator
 
-1. Clone or download this repository
-2. Navigate to the project directory:
-   ```bash
-   cd tennis-simulator
-   ```
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-3. Install dependencies using Poetry:
-   ```bash
-   poetry install
-   ```
+# Install dependencies
+pip install -r requirements.txt
 
-### Running the Application
+# Run the application
+python app.py
+```
 
-1. Start the Flask server:
-   ```bash
-   poetry run python app.py
-   ```
+### Option 2: Using Poetry
 
-2. Open your web browser and navigate to:
-   ```
-   http://localhost:5001
-   ```
+```bash
+poetry install
+poetry run python app.py
+```
 
-3. The application will automatically load player data and be ready for simulations.
+Then open http://localhost:5002 in your browser.
 
 ## How to Use
 
-1. **Select Players**: Choose two different players from the dropdown menus
-2. **Choose Surface**: Select Hard Court, Clay, or Grass
-3. **Pick Format**: Choose Best of 3 or Best of 5 sets
-4. **Run Simulation**: Click "Simulate Match" to start the Monte Carlo analysis
-5. **View Results**: Watch the progress bar and see detailed results including win percentages and set score distributions
+1. **Select Players**: Choose two different players from the dropdown menus (ranked by ATP ranking)
+2. **Configure Settings**:
+   - Choose Best of 3 or Best of 5 sets
+   - Set the number of simulations (default: 1000)
+3. **Run Simulation**: Click "Run Simulation" to start
+4. **View Results**:
+   - Win probabilities for each surface
+   - Set score distribution charts
+   - Detailed parameter analysis showing expected vs observed performance
 
 ## Simulation Algorithm
 
 ### Point-Level Simulation
-The simulator uses a sophisticated point-by-point approach:
-
-- **Serve Simulation**: Models first serve percentage, win rates, and double fault rates
+- **First Serve**: Checks serve percentage, calculates win probability using dominance ratio weighting
+- **Second Serve**: Models double fault probability and second serve win rates
+- **Break Points**: Uses dedicated break point save/conversion statistics for high-pressure situations
 - **Dominance Weighting**: Combines server and returner strengths using player dominance ratios
-- **Break Points**: Uses dedicated break point conversion and save statistics
-- **Surface Adaptation**: Automatically falls back to hard court data when surface-specific data is unavailable
 
 ### Match Structure
-- Proper tennis scoring (0, 15, 30, 40, deuce)
-- Standard set rules (first to 6 games, win by 2)
+- Standard tennis scoring (0, 15, 30, 40, deuce, advantage)
+- Set rules (first to 6 games, win by 2)
 - Tiebreaks at 6-6 with correct serving rotation
 - Configurable match formats (best of 3 or 5 sets)
-
-### Statistical Aggregation
-Each simulation runs exactly 1000 matches and tracks:
-- Win/loss counts for each player
-- Set score distributions (3-0, 3-1, 3-2, etc.)
-- Win percentages with decimal precision
 
 ## Project Structure
 
 ```
 tennis-simulator/
-├── app.py                 # Flask application with WebSocket support
-├── data_loader.py         # CSV data processing and player statistics
-├── simulation_engine.py   # Tennis match simulation logic
-├── requirements.txt       # Python dependencies
+├── app.py                 # Flask + SocketIO server
+├── data_loader.py         # CSV data processing
+├── simulation_engine.py   # Monte Carlo simulation
+├── requirements.txt       # Dependencies
 ├── templates/
-│   └── index.html        # Main web interface
+│   └── index.html        # Web interface
 ├── static/
-│   ├── style.css         # Application styling
-│   └── script.js         # Frontend JavaScript with WebSocket client
-└── data/
-    ├── Tennis abstract - serve.csv
-    ├── Tennis abstract - return.csv
-    ├── Tennis abstract - breaks.csv
-    └── Tennis abstract - more.csv
+│   ├── style.css         # Styling
+│   └── script.js         # Frontend logic
+└── data/                 # Player statistics CSVs
 ```
 
-## Design Decisions
+## Deployment
 
-### Data Handling
-- **Fallback Logic**: When a player lacks data for a specific surface, the system uses their hard court statistics with a warning to the user
-- **Unified Structure**: All CSV files are merged into a single data structure indexed by (player, surface) for efficient access
-- **Data Validation**: Percentage values are automatically converted from strings to floats
+### Local Development
+```bash
+python app.py
+```
 
-### Performance Optimization
-- **Cached Player Data**: CSV files are loaded once at startup to avoid repeated parsing
-- **Efficient Random Generation**: Uses Python's optimized random module for fast point simulation
-- **Background Processing**: Simulations run in separate threads to maintain UI responsiveness
+### Production (Gunicorn + Eventlet)
+```bash
+pip install gunicorn
+gunicorn --worker-class eventlet -w 1 app:app -b 0.0.0.0:5002
+```
 
-### User Experience
-- **Real-Time Feedback**: Progress updates every 100 simulations via WebSocket
-- **Clear Warnings**: Visual indicators when fallback data is used
-- **Responsive Design**: Adapts to different screen sizes and devices
-- **Error Handling**: Graceful handling of missing data and network issues
+### Docker (Optional)
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 5002
+CMD ["python", "app.py"]
+```
 
 ## Attribution
 
 Player statistics provided by [Tennis Abstract](https://tennisabstract.com)
 
-## Technical Requirements
+## Tech Stack
 
-- **Backend**: Flask with SocketIO for real-time communication
-- **Frontend**: Vanilla JavaScript with Chart.js for visualizations
-- **Data Processing**: Pandas for CSV handling, NumPy for statistical operations
-- **Real-Time Communication**: WebSocket for progress updates during simulation
+- **Backend**: Flask, Flask-SocketIO, Pandas, NumPy
+- **Frontend**: Vanilla JavaScript, Chart.js
+- **Real-Time**: WebSocket via Socket.IO
