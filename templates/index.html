@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tennis Match Simulator</title>
     <meta name="description" content="Monte Carlo tennis match simulator using real player statistics">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="/static/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/feather-icons"></script>
 </head>
@@ -132,37 +131,13 @@
                 </div>
             </div>
 
-            <!-- Progress Section -->
-            <div class="card progress-card" id="progressSection" style="display: none;">
-                <div class="card-header">
-                    <h2>
-                        <i data-feather="activity"></i>
-                        Simulation in Progress
-                    </h2>
-                    <p>Running Monte Carlo analysis across all surfaces...</p>
-                </div>
+            <!-- Loading Section (simple spinner) -->
+            <div class="card loading-card" id="loadingSection" style="display: none;">
                 <div class="card-content">
-                    <div class="progress-container">
-                        <div class="progress-ring">
-                            <svg width="120" height="120">
-                                <circle cx="60" cy="60" r="50" class="progress-ring-bg"></circle>
-                                <circle cx="60" cy="60" r="50" class="progress-ring-fill" id="progressRing"></circle>
-                            </svg>
-                            <div class="progress-percentage" id="progressPercentage">0%</div>
-                        </div>
-                        <div class="progress-info">
-                            <div class="progress-text" id="progressText">0 of 3000 matches completed</div>
-                            <div class="progress-stats">
-                                <div class="stat">
-                                    <span class="stat-label">Speed</span>
-                                    <span class="stat-value" id="simulationSpeed">-- matches/sec</span>
-                                </div>
-                                <div class="stat">
-                                    <span class="stat-label">ETA</span>
-                                    <span class="stat-value" id="simulationETA">--</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="loading-container">
+                        <div class="spinner"></div>
+                        <h3>Running Simulation...</h3>
+                        <p>Analyzing matches across all court surfaces</p>
                     </div>
                 </div>
             </div>
@@ -356,7 +331,7 @@
             <div class="footer-content">
                 <p>Statistics from <a href="https://tennisabstract.com" target="_blank" rel="noopener">Tennis Abstract</a></p>
                 <div class="footer-links">
-                    <a href="https://github.com" class="footer-link" target="_blank" rel="noopener">GitHub</a>
+                    <a href="https://github.com/twood22/tennis-simulator" class="footer-link" target="_blank" rel="noopener">GitHub</a>
                 </div>
             </div>
         </footer>
@@ -365,6 +340,6 @@
     <script>
         feather.replace();
     </script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
