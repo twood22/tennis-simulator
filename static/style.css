@@ -673,6 +673,47 @@ body {
     color: var(--gray-800);
 }
 
+/* Loading Section */
+.loading-card {
+    margin-bottom: var(--space-6);
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    gap: var(--space-4);
+}
+
+.loading-container h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.loading-container p {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--gray-200);
+    border-top-color: var(--court-green);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Results Dashboard */
 .results-dashboard {
     display: flex;

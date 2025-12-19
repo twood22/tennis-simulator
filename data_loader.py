@@ -40,13 +40,16 @@ class TennisDataLoader:
         
         # Clean percentage columns
         percentage_cols = [col for col in df.columns if 'pct' in col.lower() or 'win_pct' in col.lower()]
+        # Also handle double_fault_per_second_serve which is a percentage but doesn't have 'pct' in the name
+        if 'double_fault_per_second_serve' in df.columns:
+            percentage_cols.append('double_fault_per_second_serve')
         for col in percentage_cols:
             if col in df.columns:
                 df[col] = df[col].apply(self.clean_percentage)
         
         # Clean numeric columns that might have '-' values
         numeric_cols = [
-            'double_fault_per_second_serve', 'dominance_ratio', 'ranking',
+            'dominance_ratio', 'ranking',
             'first_serve_in_pct', 'first_serve_win_pct', 'second_serve_win_pct',
             'vs_first_serve_win_pct', 'vs_second_serve_win_pct',
             'break_point_conversion_pct', 'break_point_save_pct'
