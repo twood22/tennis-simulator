@@ -1,4 +1,4 @@
-app = "twood-tennis-simulator"
+app = "matchpoint-forecast"
 primary_region = "lax"
 kill_signal = "SIGTERM"
 kill_timeout = "15s"

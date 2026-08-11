@@ -4,7 +4,7 @@ A point-by-point Monte Carlo simulator for ATP singles matches. It combines a
 server's rolling serve statistics with the opponent's return statistics, then
 plays points, games, sets, and matches using standard scoring.
 
-Live site: [twood-tennis-simulator.fly.dev](https://twood-tennis-simulator.fly.dev/)
+Live site: [matchpoint-forecast.fly.dev](https://matchpoint-forecast.fly.dev/)
 
 ## What it provides
 
@@ -26,7 +26,7 @@ guarantees of match outcomes.
 ## Run locally
 
 ```bash
-git clone https://github.com/twood22/tennis-simulator.git
+git clone <repository-url>
 cd tennis-simulator
 python3 -m venv .venv
 source .venv/bin/activate

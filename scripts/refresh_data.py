@@ -34,7 +34,7 @@ STAT_FIELDS = (
     "bpSaved", "bpFaced",
 )
 SURFACES = ("hard", "clay", "grass")
-USER_AGENT = "tennis-simulator-refresh/1.0 (+https://github.com/twood22/tennis-simulator)"
+USER_AGENT = "tennis-simulator-refresh/1.0"
 
 
 def fetch(url):
