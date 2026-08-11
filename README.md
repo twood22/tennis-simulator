@@ -12,9 +12,12 @@ Live site: [matchpoint-forecast.fly.dev](https://matchpoint-forecast.fly.dev/)
 - reproducible runs via a returned random seed
 - 95% Monte Carlo confidence intervals
 - set-score distributions and expected-versus-observed diagnostics
-- a seven-day dashboard of upcoming market-listed ATP matches
+- a seven-day, day-tabbed dashboard grouped by Grand Slam, Masters 1000,
+  ATP 500, and ATP 250 tournament priority
 - live, read-only Kalshi and Polymarket match-winner comparisons
+- clearly separated prediction-market and simulation probabilities
 - progressive, cached dashboard simulations with data-quality warnings
+- player links to Tennis Abstract profiles
 - rolling 52-week data built from main-tour and Challenger matches
 - a daily, tested data refresh with an auditable snapshot branch and live deploy
 
@@ -138,10 +141,12 @@ is cached for five minutes; deterministic 1,000-run match simulations are cached
 for the lifetime of the server process.
 
 Tournament-name mappings select the court surface for known events. Matches with
-an unknown surface or a player outside the data snapshot still display market
-prices, but the app does not invent a simulation. A caution is displayed when a
-surface sample is thin or the opponents' historical schedule strength differs
-substantially.
+an unknown or lower-tier tournament are intentionally excluded from the public
+dashboard so Challenger and ITF markets are never mixed into the ATP Tour view.
+For included tournaments, a player outside the data snapshot still displays
+market prices, but the app does not invent a simulation. A caution is displayed
+when a surface sample is thin or the opponents' historical schedule strength
+differs substantially.
 
 ## Deploy to Fly.io
 

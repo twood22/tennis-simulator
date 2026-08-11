@@ -35,9 +35,9 @@
                     <div>
                         <h2>
                             <i data-feather="calendar"></i>
-                            Upcoming Matches
+                            ATP Match Forecasts
                         </h2>
-                        <p id="upcomingSummary">Loading the next seven days of market-listed matches…</p>
+                        <p id="upcomingSummary">Loading tour-level matches for the next seven days…</p>
                     </div>
                     <button type="button" class="compact-btn" id="refreshUpcomingBtn">
                         <i data-feather="refresh-cw"></i>
@@ -45,11 +45,22 @@
                     </button>
                 </div>
                 <div class="card-content">
+                    <div class="upcoming-day-navigation" aria-label="Choose match day">
+                        <button type="button" class="day-nav-arrow" id="previousDayBtn" aria-label="Previous day">
+                            <i data-feather="chevron-left"></i>
+                        </button>
+                        <div class="upcoming-day-tabs" id="upcomingDayTabs" role="tablist" aria-label="Upcoming match days"></div>
+                        <button type="button" class="day-nav-arrow" id="nextDayBtn" aria-label="Next day">
+                            <i data-feather="chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="tour-level-note">Grand Slams, Masters 1000, ATP 500 and ATP 250 only</div>
                     <div id="upcomingErrors" class="upcoming-errors" style="display: none;"></div>
-                    <div id="upcomingMatches" class="upcoming-matches">
+                    <h3 class="selected-day-heading" id="selectedDayHeading"></h3>
+                    <div id="upcomingMatches" class="upcoming-matches" role="tabpanel" aria-live="polite">
                         <div class="dashboard-loading">
                             <div class="spinner"></div>
-                            <p>Finding upcoming ATP matches…</p>
+                            <p>Finding upcoming ATP Tour matches…</p>
                         </div>
                     </div>
                 </div>

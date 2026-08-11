@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import threading
 import time
+import unicodedata
 
 from market_odds import build_market_comparison, discover_upcoming_matches
 from simulation_service import run_simulation_request
@@ -14,6 +15,79 @@ from simulation_service import run_simulation_request
 
 DISCOVERY_TTL_SECONDS = 300
 DASHBOARD_SIMULATIONS = 1000
+
+TOURNAMENT_TIERS = {
+    "grand_slam": {"label": "Grand Slam", "priority": 0},
+    "atp_finals": {"label": "ATP Finals", "priority": 1},
+    "masters_1000": {"label": "ATP Masters 1000", "priority": 2},
+    "atp_500": {"label": "ATP 500", "priority": 3},
+    "atp_250": {"label": "ATP 250", "priority": 4},
+}
+
+# The current ATP Tour calendar is intentionally explicit. Unknown events are
+# excluded from the public dashboard rather than accidentally showing a
+# Challenger or ITF event as a tour-level tournament.
+TOURNAMENT_CATALOG = (
+    ("Australian Open", "grand_slam", "hard", ("australian open",)),
+    ("Roland Garros", "grand_slam", "clay", ("roland garros", "french open")),
+    ("Wimbledon", "grand_slam", "grass", ("wimbledon",)),
+    ("US Open", "grand_slam", "hard", ("us open",)),
+    ("Nitto ATP Finals", "atp_finals", "hard", ("atp finals", "nitto finals")),
+    ("BNP Paribas Open", "masters_1000", "hard", ("indian wells", "bnp paribas open")),
+    ("Miami Open", "masters_1000", "hard", ("miami open",)),
+    ("Monte-Carlo Masters", "masters_1000", "clay", ("monte carlo", "monte-carlo")),
+    ("Madrid Open", "masters_1000", "clay", ("madrid open",)),
+    ("Italian Open", "masters_1000", "clay", ("internazionali bnl", "italian open", "rome masters")),
+    ("National Bank Open", "masters_1000", "hard", ("national bank open", "canada open", "canadian open", "montreal masters", "toronto masters")),
+    ("Cincinnati Open", "masters_1000", "hard", ("cincinnati",)),
+    ("Shanghai Masters", "masters_1000", "hard", ("shanghai masters",)),
+    ("Paris Masters", "masters_1000", "hard", ("paris masters",)),
+    ("Dallas Open", "atp_500", "hard", ("dallas open",)),
+    ("ABN AMRO Open", "atp_500", "hard", ("abn amro", "rotterdam")),
+    ("Qatar Open", "atp_500", "hard", ("qatar exxonmobil", "qatar open", "doha")),
+    ("Rio Open", "atp_500", "clay", ("rio open",)),
+    ("Mexican Open", "atp_500", "hard", ("abierto mexicano", "acapulco")),
+    ("Dubai Tennis Championships", "atp_500", "hard", ("dubai duty free", "dubai tennis")),
+    ("Barcelona Open", "atp_500", "clay", ("barcelona open",)),
+    ("BMW Open", "atp_500", "clay", ("bmw open", "munich open")),
+    ("Hamburg Open", "atp_500", "clay", ("hamburg open",)),
+    ("Halle Open", "atp_500", "grass", ("terra wortmann", "halle open")),
+    ("Queen's Club Championships", "atp_500", "grass", ("hsbc championships", "queens club", "queen s club")),
+    ("Washington Open", "atp_500", "hard", ("mubadala citi dc", "washington open", "dc open")),
+    ("Japan Open", "atp_500", "hard", ("japan open", "kinoshita group")),
+    ("China Open", "atp_500", "hard", ("china open", "beijing open")),
+    ("Swiss Indoors", "atp_500", "hard", ("swiss indoors", "basel open")),
+    ("Vienna Open", "atp_500", "hard", ("erste bank open", "vienna open")),
+    ("Brisbane International", "atp_250", "hard", ("brisbane international",)),
+    ("Hong Kong Open", "atp_250", "hard", ("hong kong tennis open", "hong kong open")),
+    ("Adelaide International", "atp_250", "hard", ("adelaide international",)),
+    ("ASB Classic", "atp_250", "hard", ("asb classic", "auckland open")),
+    ("Open Occitanie", "atp_250", "hard", ("open occitanie", "montpellier open")),
+    ("Argentina Open", "atp_250", "clay", ("argentina open", "buenos aires open")),
+    ("Delray Beach Open", "atp_250", "hard", ("delray beach",)),
+    ("Chile Open", "atp_250", "clay", ("chileopen", "chile open", "santiago open")),
+    ("Bucharest Open", "atp_250", "clay", ("tiriac open", "bucharest open")),
+    ("US Men's Clay Court Championship", "atp_250", "clay", ("men s clay court", "houston open")),
+    ("Grand Prix Hassan II", "atp_250", "clay", ("grand prix hassan", "marrakech open")),
+    ("Geneva Open", "atp_250", "clay", ("geneva open",)),
+    ("Stuttgart Open", "atp_250", "grass", ("boss open", "stuttgart open")),
+    ("Libema Open", "atp_250", "grass", ("libema open", "hertogenbosch")),
+    ("Mallorca Championships", "atp_250", "grass", ("mallorca championships",)),
+    ("Eastbourne Open", "atp_250", "grass", ("eastbourne open",)),
+    ("Nordea Open", "atp_250", "clay", ("nordea open", "bastad open")),
+    ("Swiss Open Gstaad", "atp_250", "clay", ("swiss open gstaad", "gstaad open")),
+    ("Croatia Open", "atp_250", "clay", ("croatia open", "umag open")),
+    ("Generali Open", "atp_250", "clay", ("generali open", "kitzbuhel open", "kitzbühel open")),
+    ("Estoril Open", "atp_250", "clay", ("estoril open",)),
+    ("Los Cabos Open", "atp_250", "hard", ("mifel tennis", "los cabos")),
+    ("Winston-Salem Open", "atp_250", "hard", ("winston salem", "winston-salem")),
+    ("Chengdu Open", "atp_250", "hard", ("chengdu open",)),
+    ("Hangzhou Open", "atp_250", "hard", ("hangzhou open",)),
+    ("Almaty Open", "atp_250", "hard", ("almaty open",)),
+    ("European Open", "atp_250", "hard", ("european open", "brussels open")),
+    ("Lyon Open", "atp_250", "hard", ("auvergne rhone alpes", "lyon open")),
+    ("Nordic Open", "atp_250", "hard", ("nordic open", "stockholm open")),
+)
 
 SURFACE_PATTERNS = {
     "hard": (
@@ -41,7 +115,35 @@ def _normalized_text(value):
     return " ".join(re.findall(r"[a-z0-9]+", str(value or "").lower()))
 
 
+def classify_tournament(tournament):
+    normalized = _normalized_text(tournament)
+    if not normalized:
+        return None
+    for name, tier, surface, patterns in TOURNAMENT_CATALOG:
+        if any(_normalized_text(pattern) in normalized for pattern in patterns):
+            tier_details = TOURNAMENT_TIERS[tier]
+            return {
+                "name": name,
+                "tier": tier,
+                "tier_label": tier_details["label"],
+                "priority": tier_details["priority"],
+                "surface": surface,
+            }
+    return None
+
+
+def tennis_abstract_url(player_name):
+    ascii_name = unicodedata.normalize("NFKD", str(player_name or "")).encode(
+        "ascii", "ignore"
+    ).decode("ascii")
+    slug = re.sub(r"[^A-Za-z0-9]", "", ascii_name)
+    return f"https://www.tennisabstract.com/cgi-bin/player.cgi?p={slug}"
+
+
 def infer_surface(tournament):
+    classification = classify_tournament(tournament)
+    if classification:
+        return classification["surface"]
     normalized = _normalized_text(tournament)
     for surface, patterns in SURFACE_PATTERNS.items():
         if any(_normalized_text(pattern) in normalized for pattern in patterns):
@@ -102,9 +204,28 @@ class UpcomingMatchService:
                 return deepcopy(self._matches)
             try:
                 result = self.discoverer(self._known_names(), days=days)
+                included_matches = []
+                excluded_count = 0
                 for match in result["matches"]:
+                    tournament = classify_tournament(match.get("tournament"))
+                    if tournament is None:
+                        excluded_count += 1
+                        continue
+                    match["tournament_name"] = tournament["name"]
+                    match["tournament_tier"] = tournament["tier"]
+                    match["tournament_tier_label"] = tournament["tier_label"]
+                    match["tournament_priority"] = tournament["priority"]
+                    tournament_text = _normalized_text(match.get("tournament"))
+                    is_qualification = (
+                        "qualification" in tournament_text
+                        or "qualifying" in tournament_text
+                    )
+                    match["tournament_stage"] = "Qualification" if is_qualification else "Main draw"
+                    match["tournament_stage_priority"] = 1 if is_qualification else 0
                     match["surface"] = infer_surface(match.get("tournament"))
                     match["format"] = infer_format(match.get("tournament"))
+                    match["player1_url"] = tennis_abstract_url(match["player1"])
+                    match["player2_url"] = tennis_abstract_url(match["player2"])
                     match["simulation_available"] = bool(
                         match["player1_in_model"]
                         and match["player2_in_model"]
@@ -119,6 +240,17 @@ class UpcomingMatchService:
                             match["simulation_unavailable_reason"] = (
                                 "Tournament surface is not mapped yet."
                             )
+                    included_matches.append(match)
+                included_matches.sort(key=lambda match: (
+                    match["start_time"],
+                    match["tournament_priority"],
+                    match["tournament_stage_priority"],
+                    match["tournament_name"],
+                    match["player1"],
+                ))
+                result["matches"] = included_matches
+                result["excluded_match_count"] = excluded_count
+                result["tour_level_only"] = True
                 result["data_version"] = self.data_version
                 result["cache_seconds"] = DISCOVERY_TTL_SECONDS
                 self._matches = result

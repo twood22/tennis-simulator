@@ -336,38 +336,229 @@ body {
     padding: var(--space-3);
 }
 
-.upcoming-matches,
-.match-day {
+.upcoming-day-navigation {
+    align-items: stretch;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    margin-bottom: var(--space-3);
+    overflow: hidden;
+}
+
+.upcoming-day-tabs {
+    display: flex;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scroll-snap-type: x proximity;
+}
+
+.upcoming-day-tab,
+.day-nav-arrow {
+    background: var(--white);
+    border: 0;
+    color: var(--gray-500);
+    cursor: pointer;
+    font: inherit;
+}
+
+.upcoming-day-tab {
+    align-items: center;
+    border-bottom: 3px solid transparent;
+    display: flex;
+    flex: 1 0 88px;
+    flex-direction: column;
+    gap: 1px;
+    justify-content: center;
+    min-height: 70px;
+    padding: var(--space-2);
+    position: relative;
+    scroll-snap-align: center;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.upcoming-day-tab + .upcoming-day-tab {
+    border-left: 1px solid var(--gray-100);
+}
+
+.upcoming-day-tab:hover {
+    background: var(--gray-50);
+    color: var(--gray-800);
+}
+
+.upcoming-day-tab[aria-selected="true"] {
+    background: #f0fdf4;
+    border-bottom-color: var(--court-green);
+    color: var(--court-green-dark);
+}
+
+.upcoming-day-tab:focus-visible,
+.day-nav-arrow:focus-visible,
+.upcoming-player-link:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--blue-500) 55%, transparent);
+    outline-offset: -3px;
+}
+
+.day-tab-weekday {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.day-tab-date {
+    font-size: 0.6875rem;
+}
+
+.day-tab-count {
+    align-items: center;
+    background: var(--gray-100);
+    border-radius: var(--radius-full);
+    color: var(--gray-600);
+    display: inline-flex;
+    font-size: 0.625rem;
+    font-weight: 700;
+    height: 18px;
+    justify-content: center;
+    min-width: 18px;
+    padding: 0 5px;
+}
+
+.upcoming-day-tab[aria-selected="true"] .day-tab-count {
+    background: var(--court-green);
+    color: var(--white);
+}
+
+.day-nav-arrow {
+    align-items: center;
+    border-right: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: center;
+}
+
+.day-nav-arrow:last-child {
+    border-left: 1px solid var(--gray-200);
+    border-right: 0;
+}
+
+.day-nav-arrow:disabled {
+    color: var(--gray-300);
+    cursor: default;
+}
+
+.day-nav-arrow svg {
+    height: 18px;
+    width: 18px;
+}
+
+.tour-level-note {
+    color: var(--gray-500);
+    font-size: 0.6875rem;
+    margin-bottom: var(--space-5);
+    text-align: center;
+}
+
+.selected-day-heading {
+    color: var(--gray-800);
+    font-size: 0.9375rem;
+    margin-bottom: var(--space-4);
+}
+
+.upcoming-matches {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-5);
 }
 
-.match-day + .match-day {
-    border-top: 1px solid var(--gray-200);
-    margin-top: var(--space-4);
-    padding-top: var(--space-6);
+.upcoming-empty-state {
+    align-items: center;
+    background: var(--gray-50);
+    border: 1px dashed var(--gray-300);
+    border-radius: var(--radius-lg);
+    color: var(--gray-500);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-height: 140px;
+    justify-content: center;
+    padding: var(--space-6);
+    text-align: center;
 }
 
-.match-day-title {
+.upcoming-empty-state strong {
     color: var(--gray-800);
+}
+
+.upcoming-empty-state span {
+    font-size: 0.75rem;
+    max-width: 480px;
+}
+
+.tournament-group {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-left: 4px solid var(--gray-400);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.tournament-tier-grand_slam { border-left-color: #7c3aed; }
+.tournament-tier-atp_finals { border-left-color: #b45309; }
+.tournament-tier-masters_1000 { border-left-color: #2563eb; }
+.tournament-tier-atp_500 { border-left-color: #0891b2; }
+.tournament-tier-atp_250 { border-left-color: var(--gray-500); }
+
+.tournament-group-header {
+    align-items: center;
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    gap: var(--space-4);
+    justify-content: space-between;
+    padding: var(--space-4);
+}
+
+.tournament-group-header > div {
+    align-items: center;
+    display: flex;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.tournament-group-header h3 {
+    color: var(--gray-900);
     font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tournament-tier-badge {
+    background: var(--gray-100);
+    border-radius: var(--radius-full);
+    color: var(--gray-600);
+    flex-shrink: 0;
+    font-size: 0.625rem;
     font-weight: 700;
+    padding: var(--space-1) var(--space-2);
+    text-transform: uppercase;
+}
+
+.tournament-match-count {
+    color: var(--gray-500);
+    flex-shrink: 0;
+    font-size: 0.6875rem;
 }
 
 .match-grid {
     display: grid;
-    gap: var(--space-4);
-    grid-template-columns: 1fr;
-}
-
-@media (min-width: 720px) {
-    .match-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    gap: var(--space-3);
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-3);
 }
 
 .upcoming-match-card {
+    background: var(--white);
     border: 1px solid var(--gray-200);
     border-radius: var(--radius-lg);
     display: flex;
@@ -378,6 +569,7 @@ body {
 }
 
 .upcoming-match-meta {
+    align-items: center;
     color: var(--gray-500);
     display: flex;
     font-size: 0.6875rem;
@@ -385,15 +577,20 @@ body {
     justify-content: space-between;
 }
 
-.upcoming-match-meta span:first-child {
+.upcoming-match-details {
+    align-items: center;
+    display: flex;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.upcoming-match-time {
+    color: var(--gray-700);
+    flex-shrink: 0;
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .match-surface {
-    align-self: flex-start;
     border-radius: var(--radius-full);
     font-size: 0.625rem;
     font-weight: 700;
@@ -401,116 +598,185 @@ body {
     text-transform: uppercase;
 }
 
-.match-surface-hard {
-    background: #dbeafe;
-    color: #1d4ed8;
-}
-
-.match-surface-clay {
-    background: #fee2e2;
-    color: #b91c1c;
-}
-
-.match-surface-grass {
-    background: #d1fae5;
-    color: #047857;
-}
-
-.upcoming-player-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.upcoming-player-row {
-    align-items: center;
-    display: flex;
-    gap: var(--space-3);
-    justify-content: space-between;
-}
-
-.upcoming-player-row strong {
-    color: var(--gray-900);
-    font-size: 0.875rem;
-}
-
-.upcoming-player-row span {
-    color: var(--gray-900);
-    font-size: 1rem;
-    font-weight: 700;
-}
-
-.upcoming-market-meta {
+.match-format {
     color: var(--gray-500);
-    font-size: 0.6875rem;
-}
-
-.dashboard-simulation {
-    background: var(--gray-50);
-    border-radius: var(--radius);
-    color: var(--gray-500);
-    font-size: 0.75rem;
-    min-height: 44px;
-    padding: var(--space-3);
-}
-
-.dashboard-simulation-unavailable {
-    align-items: center;
-    display: flex;
-    font-style: italic;
-}
-
-.dashboard-model-heading {
-    color: var(--gray-600);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    margin-bottom: var(--space-2);
+    font-size: 0.625rem;
+    font-weight: 600;
     text-transform: uppercase;
 }
 
-.dashboard-model-probabilities {
-    display: grid;
-    gap: var(--space-3);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
+.match-surface-hard { background: #dbeafe; color: #1d4ed8; }
+.match-surface-clay { background: #fee2e2; color: #b91c1c; }
+.match-surface-grass { background: #d1fae5; color: #047857; }
 
-.dashboard-model-probabilities > div {
-    display: flex;
-    flex-direction: column;
-}
-
-.dashboard-model-probabilities > div:last-child {
-    text-align: right;
-}
-
-.dashboard-model-probabilities span {
-    color: var(--gray-500);
-    font-size: 0.625rem;
+.probability-comparison {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.dashboard-model-probabilities strong {
+.probability-row {
+    align-items: center;
+    display: grid;
+    gap: var(--space-2);
+    grid-template-columns: minmax(0, 1fr) 5.5rem 5.5rem;
+}
+
+.probability-header-row {
+    background: var(--gray-50);
+    color: var(--gray-500);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    min-height: 34px;
+    padding: var(--space-2) var(--space-3);
+    text-transform: uppercase;
+}
+
+.probability-header-row span:not(:first-child) {
+    text-align: center;
+}
+
+.market-column-label { color: var(--blue-600); }
+.simulation-column-label { color: var(--court-green); }
+
+.player-probability-row {
+    min-height: 52px;
+    padding: var(--space-2) var(--space-3);
+}
+
+.player-probability-row + .player-probability-row {
+    border-top: 1px solid var(--gray-100);
+}
+
+.upcoming-player-link {
+    color: var(--gray-900);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.25;
+    min-width: 0;
+    text-decoration-color: var(--gray-300);
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+}
+
+.upcoming-player-link:hover {
+    color: var(--blue-600);
+    text-decoration-style: solid;
+}
+
+.probability-value {
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    padding: var(--space-2) var(--space-1);
+    text-align: center;
+}
+
+.market-probability {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.simulation-probability {
+    background: #f0fdf4;
     color: var(--court-green);
-    font-size: 1.125rem;
+}
+
+.simulation-pending {
+    color: var(--gray-400);
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.probability-source-row {
+    color: var(--gray-500);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.625rem;
+    gap: var(--space-2) var(--space-4);
+    justify-content: space-between;
+}
+
+.dashboard-simulation-footer {
+    color: var(--gray-500);
+    font-size: 0.6875rem;
+}
+
+.dashboard-simulation-footer:empty {
+    display: none;
+}
+
+.dashboard-simulation-unavailable {
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    font-style: italic;
+    padding: var(--space-2);
 }
 
 .dashboard-model-difference {
-    border-top: 1px solid var(--gray-200);
-    color: var(--gray-600);
-    font-size: 0.6875rem;
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
+    background: #f0fdf4;
+    border-left: 3px solid var(--court-green-light);
+    color: var(--court-green-dark);
+    font-weight: 600;
+    padding: var(--space-2);
 }
 
 .dashboard-quality-warning {
     background: #fffbeb;
     border-left: 3px solid var(--amber-500);
     color: #92400e;
-    font-size: 0.6875rem;
     margin-top: var(--space-2);
     padding: var(--space-2);
+}
+
+@media (min-width: 720px) {
+    .upcoming-day-tab {
+        flex-basis: 0;
+    }
+
+    .match-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: var(--space-4);
+    }
+
+    .probability-row {
+        grid-template-columns: minmax(0, 1fr) 6.5rem 6.5rem;
+    }
+}
+
+@media (max-width: 520px) {
+    .upcoming-card .card-content {
+        padding: var(--space-4);
+    }
+
+    .tournament-group-header {
+        align-items: flex-start;
+    }
+
+    .tournament-group-header > div {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+
+    .probability-row {
+        grid-template-columns: minmax(0, 1fr) 4.7rem 4.7rem;
+    }
+
+    .probability-header-row {
+        font-size: 0.5rem;
+        padding-inline: var(--space-2);
+    }
+
+    .player-probability-row {
+        padding-inline: var(--space-2);
+    }
+
+    .probability-value {
+        font-size: 0.8125rem;
+    }
 }
 
 /* Simulation Setup Card */

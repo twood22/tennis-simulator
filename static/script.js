@@ -9,6 +9,10 @@ class TennisSimulator {
         this.currentChart = null;
         this.isSimulating = false;
         this.dashboardGeneration = 0;
+        this.dashboardViewGeneration = 0;
+        this.activeUpcomingDate = null;
+        this.upcomingDayEntries = [];
+        this.upcomingDashboardData = null;
 
         this.initializeElements();
         this.setupEventListeners();
@@ -28,6 +32,8 @@ class TennisSimulator {
         this.runAnotherBtn = document.getElementById('runAnotherBtn');
         this.retryBtn = document.getElementById('retryBtn');
         this.refreshUpcomingBtn = document.getElementById('refreshUpcomingBtn');
+        this.previousDayBtn = document.getElementById('previousDayBtn');
+        this.nextDayBtn = document.getElementById('nextDayBtn');
 
         // Section elements
         this.simulationSetup = document.getElementById('simulationSetup');
@@ -47,6 +53,8 @@ class TennisSimulator {
         this.upcomingMatches = document.getElementById('upcomingMatches');
         this.upcomingSummary = document.getElementById('upcomingSummary');
         this.upcomingErrors = document.getElementById('upcomingErrors');
+        this.upcomingDayTabs = document.getElementById('upcomingDayTabs');
+        this.selectedDayHeading = document.getElementById('selectedDayHeading');
 
         // Surface-specific results elements
         this.hardResults = {
@@ -93,6 +101,8 @@ class TennisSimulator {
         this.runAnotherBtn.addEventListener('click', () => this.resetSimulation());
         this.retryBtn.addEventListener('click', () => this.resetSimulation());
         this.refreshUpcomingBtn.addEventListener('click', () => this.loadUpcomingMatches());
+        this.previousDayBtn.addEventListener('click', () => this.moveActiveUpcomingDay(-1));
+        this.nextDayBtn.addEventListener('click', () => this.moveActiveUpcomingDay(1));
 
         // Player selection change listeners
         this.player1Select.addEventListener('change', () => this.validateForm());
@@ -284,8 +294,9 @@ class TennisSimulator {
 
     async loadUpcomingMatches() {
         const generation = ++this.dashboardGeneration;
+        ++this.dashboardViewGeneration;
         this.refreshUpcomingBtn.disabled = true;
-        this.upcomingSummary.textContent = 'Loading the next seven days of market-listed matches…';
+        this.upcomingSummary.textContent = 'Loading tour-level matches for the next seven days…';
         try {
             const response = await fetch('/api/upcoming?days=7');
             const data = await response.json();
@@ -306,7 +317,7 @@ class TennisSimulator {
     }
 
     renderUpcomingMatches(data, generation) {
-        this.upcomingMatches.replaceChildren();
+        this.upcomingDashboardData = data;
         const errors = data.errors || [];
         this.upcomingErrors.replaceChildren();
         if (errors.length > 0) {
@@ -321,33 +332,165 @@ class TennisSimulator {
         }
 
         const matches = data.matches || [];
-        this.upcomingSummary.textContent = `${matches.length} market-listed matches · odds refresh about every ${Math.round(data.cache_seconds / 60)} minutes · model data ${data.data_version}`;
-        if (matches.length === 0) {
-            const empty = document.createElement('p');
-            empty.className = 'market-unavailable';
-            empty.textContent = 'No upcoming ATP match-winner markets were found.';
+        const hidden = Number(data.excluded_match_count || 0);
+        const hiddenText = hidden > 0 ? ` · ${hidden} lower-tier market${hidden === 1 ? '' : 's'} hidden` : '';
+        this.upcomingSummary.textContent = `${matches.length} ATP Tour match${matches.length === 1 ? '' : 'es'} · odds refresh about every ${Math.round(data.cache_seconds / 60)} minutes${hiddenText} · model data ${data.data_version}`;
+
+        const today = new Date();
+        today.setHours(12, 0, 0, 0);
+        this.upcomingDayEntries = Array.from({length: 7}, (_, index) => {
+            const date = new Date(today);
+            date.setDate(today.getDate() + index);
+            const key = this.localDateKey(date);
+            return {
+                date,
+                key,
+                matches: matches.filter(match => this.localDateKey(match.start_time) === key),
+            };
+        });
+        if (!this.upcomingDayEntries.some(entry => entry.key === this.activeUpcomingDate)) {
+            this.activeUpcomingDate = this.upcomingDayEntries[0].key;
+        }
+        this.renderUpcomingDayTabs();
+        this.renderActiveUpcomingDay(generation);
+    }
+
+    localDateKey(value) {
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        const pad = number => String(number).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    relativeDateLabel(date) {
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        if (this.localDateKey(date) === this.localDateKey(today)) return 'Today';
+        if (this.localDateKey(date) === this.localDateKey(tomorrow)) return 'Tomorrow';
+        return date.toLocaleDateString([], {weekday: 'long'});
+    }
+
+    renderUpcomingDayTabs() {
+        this.upcomingDayTabs.replaceChildren();
+        this.upcomingDayEntries.forEach((entry, index) => {
+            const selected = entry.key === this.activeUpcomingDate;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'upcoming-day-tab';
+            button.id = `upcoming-day-tab-${index}`;
+            button.setAttribute('role', 'tab');
+            button.setAttribute('aria-selected', String(selected));
+            button.setAttribute('aria-controls', 'upcomingMatches');
+            button.tabIndex = selected ? 0 : -1;
+            button.dataset.date = entry.key;
+
+            const weekday = document.createElement('span');
+            weekday.className = 'day-tab-weekday';
+            weekday.textContent = this.relativeDateLabel(entry.date);
+            const date = document.createElement('span');
+            date.className = 'day-tab-date';
+            date.textContent = entry.date.toLocaleDateString([], {month: 'short', day: 'numeric'});
+            const count = document.createElement('span');
+            count.className = 'day-tab-count';
+            count.textContent = String(entry.matches.length);
+            count.setAttribute('aria-label', `${entry.matches.length} matches`);
+            button.append(weekday, date, count);
+            button.addEventListener('click', () => this.selectUpcomingDay(entry.key));
+            button.addEventListener('keydown', event => this.handleUpcomingTabKeydown(event, index));
+            this.upcomingDayTabs.appendChild(button);
+        });
+        const activeIndex = this.upcomingDayEntries.findIndex(entry => entry.key === this.activeUpcomingDate);
+        const activeTab = this.upcomingDayTabs.querySelector('[aria-selected="true"]');
+        if (activeTab) this.upcomingMatches.setAttribute('aria-labelledby', activeTab.id);
+        this.previousDayBtn.disabled = activeIndex <= 0;
+        this.nextDayBtn.disabled = activeIndex >= this.upcomingDayEntries.length - 1;
+        requestAnimationFrame(() => {
+            this.upcomingDayTabs.querySelector('[aria-selected="true"]')?.scrollIntoView({
+                behavior: 'smooth', block: 'nearest', inline: 'center'
+            });
+        });
+    }
+
+    selectUpcomingDay(key, focusTab = false) {
+        if (!this.upcomingDayEntries.some(entry => entry.key === key)) return;
+        this.activeUpcomingDate = key;
+        this.renderUpcomingDayTabs();
+        this.renderActiveUpcomingDay(this.dashboardGeneration);
+        if (focusTab) {
+            this.upcomingDayTabs.querySelector(`[data-date="${key}"]`)?.focus();
+        }
+    }
+
+    moveActiveUpcomingDay(delta) {
+        const current = this.upcomingDayEntries.findIndex(entry => entry.key === this.activeUpcomingDate);
+        const target = Math.max(0, Math.min(this.upcomingDayEntries.length - 1, current + delta));
+        if (target !== current) this.selectUpcomingDay(this.upcomingDayEntries[target].key, true);
+    }
+
+    handleUpcomingTabKeydown(event, index) {
+        const keys = {ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: this.upcomingDayEntries.length - 1};
+        if (!(event.key in keys)) return;
+        event.preventDefault();
+        const target = Math.max(0, Math.min(this.upcomingDayEntries.length - 1, keys[event.key]));
+        this.selectUpcomingDay(this.upcomingDayEntries[target].key, true);
+    }
+
+    renderActiveUpcomingDay(generation) {
+        const viewGeneration = ++this.dashboardViewGeneration;
+        this.upcomingMatches.replaceChildren();
+        const entry = this.upcomingDayEntries.find(day => day.key === this.activeUpcomingDate);
+        if (!entry) return;
+        this.selectedDayHeading.textContent = entry.date.toLocaleDateString([], {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+        });
+        if (entry.matches.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'upcoming-empty-state';
+            const title = document.createElement('strong');
+            title.textContent = 'No tour-level matches listed';
+            const detail = document.createElement('span');
+            detail.textContent = 'No Grand Slam, Masters 1000, ATP 500 or ATP 250 markets were found for this day.';
+            empty.append(title, detail);
             this.upcomingMatches.appendChild(empty);
             return;
         }
 
-        const groups = new Map();
-        matches.forEach(match => {
-            const date = new Date(match.start_time);
-            const key = Number.isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString([], {
-                weekday: 'long', month: 'short', day: 'numeric'
-            });
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(match);
+        const tournaments = new Map();
+        entry.matches.forEach(match => {
+            const key = `${match.tournament_priority}|${match.tournament_name}`;
+            if (!tournaments.has(key)) tournaments.set(key, []);
+            tournaments.get(key).push(match);
         });
-
+        const tournamentGroups = [...tournaments.values()].sort((first, second) =>
+            first[0].tournament_priority - second[0].tournament_priority ||
+            Math.min(...first.map(match => match.tournament_stage_priority)) -
+                Math.min(...second.map(match => match.tournament_stage_priority)) ||
+            first[0].tournament_name.localeCompare(second[0].tournament_name)
+        );
         const simulationTasks = [];
-        groups.forEach((groupMatches, label) => {
+        tournamentGroups.forEach(groupMatches => {
+            const tournament = groupMatches[0];
             const section = document.createElement('section');
-            section.className = 'match-day';
-            const heading = document.createElement('h3');
-            heading.className = 'match-day-title';
-            heading.textContent = this.relativeDateLabel(groupMatches[0].start_time, label);
-            section.appendChild(heading);
+            section.className = `tournament-group tournament-tier-${tournament.tournament_tier}`;
+            const header = document.createElement('div');
+            header.className = 'tournament-group-header';
+            const heading = document.createElement('div');
+            const title = document.createElement('h3');
+            title.textContent = tournament.tournament_name;
+            const tier = document.createElement('span');
+            tier.className = 'tournament-tier-badge';
+            const stages = new Set(groupMatches.map(match => match.tournament_stage));
+            tier.textContent = stages.size === 1 && stages.has('Qualification')
+                ? `${tournament.tournament_tier_label} · Qualification`
+                : tournament.tournament_tier_label;
+            heading.append(title, tier);
+            const matchCount = document.createElement('span');
+            matchCount.className = 'tournament-match-count';
+            matchCount.textContent = `${groupMatches.length} match${groupMatches.length === 1 ? '' : 'es'}`;
+            header.append(heading, matchCount);
+            section.appendChild(header);
+
             const grid = document.createElement('div');
             grid.className = 'match-grid';
             groupMatches.forEach(match => {
@@ -360,94 +503,131 @@ class TennisSimulator {
             section.appendChild(grid);
             this.upcomingMatches.appendChild(section);
         });
-        this.loadDashboardSimulations(simulationTasks, generation);
-    }
-
-    relativeDateLabel(startTime, fallback) {
-        const date = new Date(startTime);
-        if (Number.isNaN(date.getTime())) return fallback;
-        const today = new Date();
-        const tomorrow = new Date();
-        tomorrow.setDate(today.getDate() + 1);
-        const key = value => `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
-        if (key(date) === key(today)) return `Today · ${fallback}`;
-        if (key(date) === key(tomorrow)) return `Tomorrow · ${fallback}`;
-        return fallback;
+        this.loadDashboardSimulations(simulationTasks, generation, viewGeneration);
     }
 
     createUpcomingMatchCard(match) {
         const card = document.createElement('article');
         card.className = 'upcoming-match-card';
+        card.dataset.matchId = match.id;
 
         const meta = document.createElement('div');
         meta.className = 'upcoming-match-meta';
-        const tournament = document.createElement('span');
-        tournament.textContent = match.tournament || 'ATP match';
+        const details = document.createElement('div');
+        details.className = 'upcoming-match-details';
+        if (match.surface) {
+            const surface = document.createElement('span');
+            surface.className = `match-surface match-surface-${match.surface}`;
+            surface.textContent = match.surface;
+            const format = document.createElement('span');
+            format.className = 'match-format';
+            format.textContent = match.format === 'best5' ? 'Best of 5' : 'Best of 3';
+            details.append(surface, format);
+        }
         const time = document.createElement('span');
+        time.className = 'upcoming-match-time';
         const start = new Date(match.start_time);
         time.textContent = Number.isNaN(start.getTime()) ? 'Time TBD' : start.toLocaleTimeString([], {
             hour: 'numeric', minute: '2-digit'
         });
-        meta.append(tournament, time);
+        meta.append(details, time);
         card.appendChild(meta);
 
-        if (match.surface) {
-            const surface = document.createElement('div');
-            surface.className = `match-surface match-surface-${match.surface}`;
-            surface.textContent = `${match.surface} · ${match.format === 'best5' ? 'best of 5' : 'best of 3'}`;
-            card.appendChild(surface);
-        }
-
         const consensus = match.market_comparison?.consensus;
-        const players = document.createElement('div');
-        players.className = 'upcoming-player-list';
-        [match.player1, match.player2].forEach((name, index) => {
-            const row = document.createElement('div');
-            row.className = 'upcoming-player-row';
-            const playerName = document.createElement('strong');
-            playerName.textContent = name;
-            const price = document.createElement('span');
-            const playerMarket = consensus?.[`player${index + 1}`];
-            price.textContent = playerMarket ? this.formatProbability(playerMarket.probability) : '—';
-            row.append(playerName, price);
-            players.appendChild(row);
-        });
-        card.appendChild(players);
-
-        const marketMeta = document.createElement('div');
-        marketMeta.className = 'upcoming-market-meta';
-        const providerNames = (match.market_comparison?.providers || []).map(provider =>
+        const providers = (match.market_comparison?.providers || []).map(provider =>
             provider.provider === 'kalshi' ? 'Kalshi' : 'Polymarket'
         );
-        marketMeta.textContent = `Market consensus · ${providerNames.join(' + ')}`;
-        card.appendChild(marketMeta);
+        const comparison = document.createElement('div');
+        comparison.className = 'probability-comparison';
+        const header = document.createElement('div');
+        header.className = 'probability-row probability-header-row';
+        const playerHeader = document.createElement('span');
+        playerHeader.textContent = 'Player';
+        const marketHeader = document.createElement('span');
+        marketHeader.className = 'market-column-label';
+        marketHeader.textContent = 'Prediction market';
+        const simulationHeader = document.createElement('span');
+        simulationHeader.className = 'simulation-column-label';
+        simulationHeader.textContent = 'Our simulation';
+        header.append(playerHeader, marketHeader, simulationHeader);
+        comparison.appendChild(header);
+
+        const modelCells = [];
+        [match.player1, match.player2].forEach((name, index) => {
+            const row = document.createElement('div');
+            row.className = 'probability-row player-probability-row';
+            const playerLink = document.createElement('a');
+            playerLink.className = 'upcoming-player-link';
+            playerLink.href = match[`player${index + 1}_url`];
+            playerLink.target = '_blank';
+            playerLink.rel = 'noopener noreferrer';
+            playerLink.textContent = name;
+            playerLink.setAttribute('aria-label', `${name} profile on Tennis Abstract (opens in a new tab)`);
+            const marketValue = document.createElement('span');
+            marketValue.className = 'probability-value market-probability';
+            const playerMarket = consensus?.[`player${index + 1}`];
+            marketValue.textContent = playerMarket ? this.formatProbability(playerMarket.probability) : '—';
+            const modelValue = document.createElement('span');
+            modelValue.className = 'probability-value simulation-probability simulation-pending';
+            modelValue.textContent = match.simulation_available ? 'Running…' : '—';
+            modelValue.setAttribute('aria-label', match.simulation_available ? 'Simulation running' : 'Simulation unavailable');
+            modelCells.push(modelValue);
+            row.append(playerLink, marketValue, modelValue);
+            comparison.appendChild(row);
+        });
+        card.appendChild(comparison);
+
+        const sources = document.createElement('div');
+        sources.className = 'probability-source-row';
+        const marketSource = document.createElement('span');
+        marketSource.textContent = providers.length > 0 ? `Market: ${providers.join(' + ')}` : 'Market unavailable';
+        const simulationSource = document.createElement('span');
+        simulationSource.textContent = match.simulation_available ? 'Simulation: 1,000 runs' : 'Simulation unavailable';
+        sources.append(marketSource, simulationSource);
+        card.appendChild(sources);
 
         const simulationTarget = document.createElement('div');
-        simulationTarget.className = 'dashboard-simulation';
-        if (match.simulation_available) {
-            simulationTarget.textContent = 'Model simulation queued…';
-        } else {
+        simulationTarget.className = 'dashboard-simulation-footer';
+        if (!match.simulation_available) {
             simulationTarget.classList.add('dashboard-simulation-unavailable');
             simulationTarget.textContent = match.simulation_unavailable_reason;
         }
         card.appendChild(simulationTarget);
-        return {card, simulationTarget: match.simulation_available ? simulationTarget : null};
+        return {
+            card,
+            simulationTarget: match.simulation_available ? {footer: simulationTarget, modelCells} : null,
+        };
     }
 
-    async loadDashboardSimulations(tasks, generation) {
+    async loadDashboardSimulations(tasks, generation, viewGeneration) {
         let nextIndex = 0;
         const worker = async () => {
-            while (nextIndex < tasks.length && generation === this.dashboardGeneration) {
+            while (
+                nextIndex < tasks.length &&
+                generation === this.dashboardGeneration &&
+                viewGeneration === this.dashboardViewGeneration
+            ) {
                 const task = tasks[nextIndex++];
                 try {
                     const response = await fetch(`/api/upcoming/${encodeURIComponent(task.match.id)}/simulation`);
                     const data = await response.json();
                     if (!response.ok || data.error) throw new Error(data.error || 'Simulation unavailable');
-                    if (generation === this.dashboardGeneration) this.renderDashboardSimulation(task.target, data);
+                    if (
+                        generation === this.dashboardGeneration &&
+                        viewGeneration === this.dashboardViewGeneration
+                    ) this.renderDashboardSimulation(task.target, data);
                 } catch (error) {
-                    if (generation === this.dashboardGeneration) {
-                        task.target.classList.add('dashboard-simulation-unavailable');
-                        task.target.textContent = 'Model simulation unavailable.';
+                    if (
+                        generation === this.dashboardGeneration &&
+                        viewGeneration === this.dashboardViewGeneration
+                    ) {
+                        task.target.modelCells.forEach(cell => {
+                            cell.classList.remove('simulation-pending');
+                            cell.textContent = '—';
+                            cell.setAttribute('aria-label', 'Simulation unavailable');
+                        });
+                        task.target.footer.classList.add('dashboard-simulation-unavailable');
+                        task.target.footer.textContent = 'Simulation unavailable.';
                     }
                 }
             }
@@ -456,32 +636,22 @@ class TennisSimulator {
     }
 
     renderDashboardSimulation(target, data) {
-        target.replaceChildren();
-        const heading = document.createElement('div');
-        heading.className = 'dashboard-model-heading';
-        heading.textContent = `Model · ${data.surface} · ${data.num_simulations.toLocaleString()} runs`;
-        target.appendChild(heading);
-
-        const probabilities = document.createElement('div');
-        probabilities.className = 'dashboard-model-probabilities';
-        [[data.player1, data.player1_probability], [data.player2, data.player2_probability]].forEach(([name, value]) => {
-            const item = document.createElement('div');
-            const label = document.createElement('span');
-            label.textContent = name;
-            const probability = document.createElement('strong');
-            probability.textContent = this.formatProbability(value);
-            item.append(label, probability);
-            probabilities.appendChild(item);
+        [data.player1_probability, data.player2_probability].forEach((value, index) => {
+            const cell = target.modelCells[index];
+            cell.classList.remove('simulation-pending');
+            cell.textContent = this.formatProbability(value);
+            cell.setAttribute('aria-label', `Simulation probability ${this.formatProbability(value)}`);
         });
-        target.appendChild(probabilities);
+        target.footer.replaceChildren();
 
         const comparison = data.market_comparison?.model_comparison?.[data.surface];
         if (comparison) {
             const difference = document.createElement('div');
             difference.className = 'dashboard-model-difference';
             const value = comparison.player1_model_minus_market_pp;
-            difference.textContent = `${data.player1}: model ${value >= 0 ? '+' : ''}${value.toFixed(1)} percentage points vs market`;
-            target.appendChild(difference);
+            const player = value >= 0 ? data.player1 : data.player2;
+            difference.textContent = `${player}: simulation ${Math.abs(value).toFixed(1)} points above the market`;
+            target.footer.appendChild(difference);
         }
 
         const warnings = [...(data.quality?.warnings || []), ...(data.fallback_warnings || [])];
@@ -489,7 +659,7 @@ class TennisSimulator {
             const warning = document.createElement('div');
             warning.className = 'dashboard-quality-warning';
             warning.textContent = warnings.join(' ');
-            target.appendChild(warning);
+            target.footer.appendChild(warning);
         }
     }
 
