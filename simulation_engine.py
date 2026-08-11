@@ -1,6 +1,6 @@
 import random
-import numpy as np
-from typing import Dict, Tuple, List
+from math import sqrt
+from typing import Dict, Tuple, List, Optional
 from dataclasses import dataclass
 
 @dataclass
@@ -112,9 +112,55 @@ class MatchStats:
             'double_fault_per_second_serve': double_faults / second_serves_attempted if second_serves_attempted > 0 else 0,
         }
 
+    def get_observed_counts(self, player: int) -> Dict:
+        """Return numerator/denominator pairs for correctly weighted aggregation."""
+        prefix = f"player{player}_"
+        value = lambda name: getattr(self, f"{prefix}{name}")
+        second_attempts = value("second_serves_attempted")
+        return {
+            'first_serve_in_pct': (value("first_serves_in"), value("first_serves_attempted")),
+            'first_serve_win_pct': (value("first_serve_points_won"), value("first_serve_points_played")),
+            'second_serve_in_pct': (second_attempts - value("double_faults"), second_attempts),
+            'second_serve_win_pct': (value("second_serve_points_won"), value("second_serve_points_played")),
+            'vs_first_serve_win_pct': (value("vs_first_serve_points_won"), value("vs_first_serve_points_played")),
+            'vs_second_serve_win_pct': (value("vs_second_serve_points_won"), value("vs_second_serve_points_played")),
+            'break_point_save_pct': (value("break_points_saved"), value("break_points_faced")),
+            'break_point_conversion_pct': (value("break_points_converted"), value("break_points_opportunities")),
+            'double_fault_per_second_serve': (value("double_faults"), second_attempts),
+        }
+
 class TennisSimulator:
-    def __init__(self):
-        self.random = random.Random()
+    def __init__(self, seed: Optional[int] = None):
+        self.random = random.Random(seed)
+
+    @staticmethod
+    def _matchup_win_probability(server_strength: float, returner_win_strength: float,
+                                 server_dominance: float, returner_dominance: float) -> float:
+        """Combine server and returner rates using the project's existing weighting model."""
+        returner_equivalent = 1.0 - returner_win_strength
+        total_dominance = server_dominance + returner_dominance
+        if total_dominance <= 0:
+            probability = (server_strength + returner_equivalent) / 2.0
+        else:
+            probability = (
+                server_strength * server_dominance
+                + returner_equivalent * returner_dominance
+            ) / total_dominance
+        return min(1.0, max(0.0, probability))
+
+    @staticmethod
+    def _record_break_point_result(match_stats: MatchStats, server_player: int,
+                                   server_wins: bool) -> None:
+        returner_player = 3 - server_player
+        if server_wins:
+            if server_player == 1:
+                match_stats.player1_break_points_saved += 1
+            else:
+                match_stats.player2_break_points_saved += 1
+        elif returner_player == 1:
+            match_stats.player1_break_points_converted += 1
+        else:
+            match_stats.player2_break_points_converted += 1
         
     def simulate_point(self, server_stats: Dict, returner_stats: Dict, is_break_point: bool = False, 
                       server_player: int = 1, match_stats: MatchStats = None) -> bool:
@@ -123,35 +169,13 @@ class TennisSimulator:
         """
         returner_player = 3 - server_player  # 1 becomes 2, 2 becomes 1
         
-        if is_break_point:
-            # Track break point statistics
-            if match_stats:
-                if server_player == 1:
-                    match_stats.player1_break_points_faced += 1
-                    match_stats.player2_break_points_opportunities += 1
-                else:
-                    match_stats.player2_break_points_faced += 1
-                    match_stats.player1_break_points_opportunities += 1
-            
-            # Use dedicated break point statistics
-            server_win_prob = server_stats['break_point_save_pct']
-            server_wins = self.random.random() < server_win_prob
-            
-            # Track break point saves and conversions
-            if match_stats:
-                if server_wins:
-                    if server_player == 1:
-                        match_stats.player1_break_points_saved += 1
-                    else:
-                        match_stats.player2_break_points_saved += 1
-                else:
-                    # Returner converted the break point
-                    if returner_player == 1:
-                        match_stats.player1_break_points_converted += 1
-                    else:
-                        match_stats.player2_break_points_converted += 1
-                    
-            return server_wins
+        if is_break_point and match_stats:
+            if server_player == 1:
+                match_stats.player1_break_points_faced += 1
+                match_stats.player2_break_points_opportunities += 1
+            else:
+                match_stats.player2_break_points_faced += 1
+                match_stats.player1_break_points_opportunities += 1
         
         # Track first serve attempt
         if match_stats:
@@ -175,16 +199,12 @@ class TennisSimulator:
                     match_stats.player2_first_serve_points_played += 1
                     match_stats.player1_vs_first_serve_points_played += 1
             
-            # First serve point calculation using dominance ratio weighting
-            server_strength = server_stats['first_serve_win_pct']
-            returner_strength = 1 - returner_stats['vs_first_serve_win_pct']
-            
-            server_dominance = server_stats['dominance_ratio']
-            returner_dominance = returner_stats['dominance_ratio']
-            
-            total_dominance = server_dominance + returner_dominance
-            win_prob = ((server_strength * server_dominance + 
-                        returner_strength * returner_dominance) / total_dominance)
+            win_prob = self._matchup_win_probability(
+                server_stats['first_serve_win_pct'],
+                returner_stats['vs_first_serve_win_pct'],
+                server_stats['dominance_ratio'],
+                returner_stats['dominance_ratio'],
+            )
                         
             server_wins = self.random.random() < win_prob
             
@@ -202,54 +222,44 @@ class TennisSimulator:
                     else:
                         match_stats.player2_vs_first_serve_points_won += 1
                     
+            if is_break_point and match_stats:
+                self._record_break_point_result(match_stats, server_player, server_wins)
             return server_wins
         else:
-            # Track second serve attempt
+            # The source's second-serve win rate already includes double faults.
+            # Model server wins, double faults, and in-play losses as disjoint outcomes.
             if match_stats:
                 if server_player == 1:
                     match_stats.player1_second_serves_attempted += 1
+                    match_stats.player1_second_serve_points_played += 1
+                    match_stats.player2_vs_second_serve_points_played += 1
                 else:
                     match_stats.player2_second_serves_attempted += 1
+                    match_stats.player2_second_serve_points_played += 1
+                    match_stats.player1_vs_second_serve_points_played += 1
+
+            win_prob = self._matchup_win_probability(
+                server_stats['second_serve_win_pct'],
+                returner_stats['vs_second_serve_win_pct'],
+                server_stats['dominance_ratio'],
+                returner_stats['dominance_ratio'],
+            )
+            double_fault_prob = min(
+                max(0.0, server_stats['double_fault_per_second_serve']),
+                1.0 - win_prob,
+            )
+            outcome = self.random.random()
+            is_double_fault = outcome < double_fault_prob
+            server_wins = double_fault_prob <= outcome < double_fault_prob + win_prob
             
-            # Second serve calculation
-            second_serve_in_prob = 1 - server_stats['double_fault_per_second_serve']
-            second_serve_in = self.random.random() < second_serve_in_prob
-            
-            if not second_serve_in:
-                # Track double fault
-                if match_stats:
+            # Track second serve point wins and returning stats
+            if match_stats:
+                if is_double_fault:
                     if server_player == 1:
                         match_stats.player1_double_faults += 1
                     else:
                         match_stats.player2_double_faults += 1
-                # Double fault - returner wins
-                return False
-            
-            # Track second serve point and returning stats
-            if match_stats:
-                if server_player == 1:
-                    match_stats.player1_second_serve_points_played += 1
-                    match_stats.player2_vs_second_serve_points_played += 1
-                else:
-                    match_stats.player2_second_serve_points_played += 1
-                    match_stats.player1_vs_second_serve_points_played += 1
-            
-            # Second serve point calculation
-            server_strength = server_stats['second_serve_win_pct']
-            returner_strength = 1 - returner_stats['vs_second_serve_win_pct']
-            
-            server_dominance = server_stats['dominance_ratio']
-            returner_dominance = returner_stats['dominance_ratio']
-            
-            total_dominance = server_dominance + returner_dominance
-            win_prob = ((server_strength * server_dominance + 
-                        returner_strength * returner_dominance) / total_dominance)
-                        
-            server_wins = self.random.random() < win_prob
-            
-            # Track second serve point wins and returning stats
-            if match_stats:
-                if server_wins:
+                elif server_wins:
                     if server_player == 1:
                         match_stats.player1_second_serve_points_won += 1
                     else:
@@ -261,6 +271,8 @@ class TennisSimulator:
                     else:
                         match_stats.player2_vs_second_serve_points_won += 1
                     
+            if is_break_point and match_stats:
+                self._record_break_point_result(match_stats, server_player, server_wins)
             return server_wins
     
     def simulate_game(self, server_stats: Dict, returner_stats: Dict, 
@@ -343,9 +355,10 @@ class TennisSimulator:
             if points_played == 1 or (points_played > 1 and (points_played - 1) % 2 == 0):
                 current_server = 3 - current_server  # Switch between 1 and 2
     
-    def simulate_set(self, p1_stats: Dict, p2_stats: Dict, starting_server: int, match_stats: MatchStats = None) -> Tuple[int, int, int]:
+    def simulate_set(self, p1_stats: Dict, p2_stats: Dict, starting_server: int,
+                     match_stats: MatchStats = None) -> Tuple[int, int, int, int]:
         """
-        Simulate a set. Returns (winner, p1_games, p2_games).
+        Simulate a set. Returns (winner, p1_games, p2_games, next_set_server).
         """
         set_score = SetScore()
         current_server = starting_server
@@ -374,22 +387,28 @@ class TennisSimulator:
                 # Check for regular set win (6+ games, lead of 2+)
                 if (set_score.player1_games >= 6 and 
                     set_score.player1_games - set_score.player2_games >= 2):
-                    return 1, set_score.player1_games, set_score.player2_games
+                    return 1, set_score.player1_games, set_score.player2_games, 3 - current_server
                 elif (set_score.player2_games >= 6 and 
                       set_score.player2_games - set_score.player1_games >= 2):
-                    return 2, set_score.player1_games, set_score.player2_games
+                    return 2, set_score.player1_games, set_score.player2_games, 3 - current_server
                 elif set_score.player1_games == 6 and set_score.player2_games == 6:
                     # Tiebreak needed
-                    tiebreak_winner = self.simulate_tiebreak(p1_stats, p2_stats, current_server, match_stats)
+                    tiebreak_starting_server = 3 - current_server
+                    tiebreak_winner = self.simulate_tiebreak(
+                        p1_stats, p2_stats, tiebreak_starting_server, match_stats
+                    )
+                    next_set_server = 3 - tiebreak_starting_server
                     if tiebreak_winner == 1:
-                        return 1, 7, 6
+                        return 1, 7, 6, next_set_server
                     else:
-                        return 2, 6, 7
+                        return 2, 6, 7, next_set_server
             
             # Alternate server for next game
             current_server = 3 - current_server
     
-    def simulate_match(self, p1_stats: Dict, p2_stats: Dict, format_type: str = "best3", track_stats: bool = False) -> MatchResult:
+    def simulate_match(self, p1_stats: Dict, p2_stats: Dict, format_type: str = "best3",
+                       track_stats: bool = False,
+                       starting_server: Optional[int] = None) -> MatchResult:
         """
         Simulate a complete match. Returns MatchResult.
         """
@@ -397,14 +416,16 @@ class TennisSimulator:
         p1_sets = 0
         p2_sets = 0
         set_scores = []
-        current_server = 1  # Player 1 starts serving
+        current_server = starting_server or self.random.choice((1, 2))
         total_games = 0
         
         # Initialize match stats tracking if requested
         match_stats = MatchStats() if track_stats else None
         
         while p1_sets < sets_to_win and p2_sets < sets_to_win:
-            set_winner, p1_games, p2_games = self.simulate_set(p1_stats, p2_stats, current_server, match_stats)
+            set_winner, p1_games, p2_games, current_server = self.simulate_set(
+                p1_stats, p2_stats, current_server, match_stats
+            )
             
             set_scores.append((p1_games, p2_games))
             total_games += p1_games + p2_games
@@ -414,17 +435,20 @@ class TennisSimulator:
             else:
                 p2_sets += 1
             
-            # Alternate starting server for next set
-            current_server = 3 - current_server
-        
         winner = 1 if p1_sets > p2_sets else 2
         
         # Prepare match stats for return
         match_stats_dict = None
         if match_stats:
             match_stats_dict = {
-                'player1': match_stats.get_observed_stats(1),
-                'player2': match_stats.get_observed_stats(2)
+                'player1': {
+                    **match_stats.get_observed_stats(1),
+                    '_counts': match_stats.get_observed_counts(1),
+                },
+                'player2': {
+                    **match_stats.get_observed_stats(2),
+                    '_counts': match_stats.get_observed_counts(2),
+                },
             }
         
         return MatchResult(winner=winner, set_scores=set_scores, total_games=total_games, match_stats=match_stats_dict)
@@ -433,46 +457,33 @@ class TennisSimulator:
                                  format_type: str = "best3", 
                                  num_simulations: int = 1000,
                                  progress_callback=None,
-                                 track_detailed_stats: bool = False) -> Dict:
+                                 track_detailed_stats: bool = False,
+                                 seed: Optional[int] = None) -> Dict:
         """
         Run Monte Carlo simulation with specified number of matches.
         """
+        effective_seed = seed if seed is not None else random.SystemRandom().getrandbits(64)
+        worker = TennisSimulator(effective_seed)
         p1_wins = 0
         p2_wins = 0
         set_distributions = {}
         
         # Aggregate observed statistics
-        aggregated_stats = {
-            'player1': {
-                'first_serve_in_pct': 0,
-                'first_serve_win_pct': 0,
-                'second_serve_in_pct': 0,
-                'second_serve_win_pct': 0,
-                'vs_first_serve_win_pct': 0,
-                'vs_second_serve_win_pct': 0,
-                'break_point_save_pct': 0,
-                'break_point_conversion_pct': 0,
-                'double_fault_per_second_serve': 0,
-                'count': 0
-            },
-            'player2': {
-                'first_serve_in_pct': 0,
-                'first_serve_win_pct': 0,
-                'second_serve_in_pct': 0,
-                'second_serve_win_pct': 0,
-                'vs_first_serve_win_pct': 0,
-                'vs_second_serve_win_pct': 0,
-                'break_point_save_pct': 0,
-                'break_point_conversion_pct': 0,
-                'double_fault_per_second_serve': 0,
-                'count': 0
-            }
+        stat_keys = [
+            'first_serve_in_pct', 'first_serve_win_pct', 'second_serve_in_pct',
+            'second_serve_win_pct', 'vs_first_serve_win_pct',
+            'vs_second_serve_win_pct', 'break_point_save_pct',
+            'break_point_conversion_pct', 'double_fault_per_second_serve',
+        ]
+        aggregated_counts = {
+            player: {key: [0, 0] for key in stat_keys}
+            for player in ('player1', 'player2')
         }
         
         for i in range(num_simulations):
             # Track detailed stats for aggregation if requested
             track_stats = track_detailed_stats
-            result = self.simulate_match(p1_stats, p2_stats, format_type, track_stats)
+            result = worker.simulate_match(p1_stats, p2_stats, format_type, track_stats)
             
             if result.winner == 1:
                 p1_wins += 1
@@ -488,13 +499,9 @@ class TennisSimulator:
             # Aggregate observed statistics if available
             if result.match_stats:
                 for player in ['player1', 'player2']:
-                    stats = result.match_stats[player]
-                    agg_stats = aggregated_stats[player]
-                    for key in ['first_serve_in_pct', 'first_serve_win_pct', 'second_serve_in_pct', 'second_serve_win_pct', 
-                               'vs_first_serve_win_pct', 'vs_second_serve_win_pct', 'break_point_save_pct', 
-                               'break_point_conversion_pct', 'double_fault_per_second_serve']:
-                        agg_stats[key] += stats[key]
-                    agg_stats['count'] += 1
+                    for key, (numerator, denominator) in result.match_stats[player]['_counts'].items():
+                        aggregated_counts[player][key][0] += numerator
+                        aggregated_counts[player][key][1] += denominator
             
             # Progress callback
             if progress_callback and (i + 1) % max(1, num_simulations // 10) == 0:
@@ -502,25 +509,32 @@ class TennisSimulator:
         
         # Calculate average observed statistics
         observed_stats = None
-        if track_detailed_stats and aggregated_stats['player1']['count'] > 0:
+        if track_detailed_stats:
             observed_stats = {}
             for player in ['player1', 'player2']:
-                count = aggregated_stats[player]['count']
-                if count > 0:
-                    observed_stats[player] = {
-                        key: aggregated_stats[player][key] / count
-                        for key in ['first_serve_in_pct', 'first_serve_win_pct', 'second_serve_in_pct', 'second_serve_win_pct', 
-                                   'vs_first_serve_win_pct', 'vs_second_serve_win_pct', 'break_point_save_pct', 
-                                   'break_point_conversion_pct', 'double_fault_per_second_serve']
-                    }
+                observed_stats[player] = {
+                    key: numerator / denominator if denominator else None
+                    for key, (numerator, denominator) in aggregated_counts[player].items()
+                }
         
+        z = 1.959963984540054
+        p1_rate = p1_wins / num_simulations
+        denominator = 1 + z * z / num_simulations
+        center = (p1_rate + z * z / (2 * num_simulations)) / denominator
+        margin = z * sqrt(
+            p1_rate * (1 - p1_rate) / num_simulations
+            + z * z / (4 * num_simulations * num_simulations)
+        ) / denominator
+
         result_dict = {
             "player1_wins": p1_wins,
             "player2_wins": p2_wins,
             "player1_win_pct": p1_wins / num_simulations,
             "player2_win_pct": p2_wins / num_simulations,
+            "player1_win_ci95": [max(0.0, center - margin), min(1.0, center + margin)],
             "set_distributions": set_distributions,
-            "total_simulations": num_simulations
+            "total_simulations": num_simulations,
+            "seed": effective_seed,
         }
         
         if observed_stats:

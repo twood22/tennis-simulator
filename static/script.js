@@ -8,10 +8,12 @@ class TennisSimulator {
         this.players = [];
         this.currentChart = null;
         this.isSimulating = false;
+        this.dashboardGeneration = 0;
 
         this.initializeElements();
         this.setupEventListeners();
         this.loadPlayers();
+        this.loadUpcomingMatches();
         this.setupUIInteractions();
     }
 
@@ -25,6 +27,7 @@ class TennisSimulator {
         this.simulateBtn = document.getElementById('simulateBtn');
         this.runAnotherBtn = document.getElementById('runAnotherBtn');
         this.retryBtn = document.getElementById('retryBtn');
+        this.refreshUpcomingBtn = document.getElementById('refreshUpcomingBtn');
 
         // Section elements
         this.simulationSetup = document.getElementById('simulationSetup');
@@ -40,6 +43,10 @@ class TennisSimulator {
         this.simulationSummary = document.getElementById('simulationSummary');
         this.warningsList = document.getElementById('warningsList');
         this.errorMessage = document.getElementById('errorMessage');
+        this.marketComparisonContent = document.getElementById('marketComparisonContent');
+        this.upcomingMatches = document.getElementById('upcomingMatches');
+        this.upcomingSummary = document.getElementById('upcomingSummary');
+        this.upcomingErrors = document.getElementById('upcomingErrors');
 
         // Surface-specific results elements
         this.hardResults = {
@@ -85,6 +92,7 @@ class TennisSimulator {
         this.simulateBtn.addEventListener('click', () => this.startSimulation());
         this.runAnotherBtn.addEventListener('click', () => this.resetSimulation());
         this.retryBtn.addEventListener('click', () => this.resetSimulation());
+        this.refreshUpcomingBtn.addEventListener('click', () => this.loadUpcomingMatches());
 
         // Player selection change listeners
         this.player1Select.addEventListener('change', () => this.validateForm());
@@ -244,13 +252,18 @@ class TennisSimulator {
         this.matchFormat.textContent = formatNames[data.format];
 
         // Update simulation summary
-        this.simulationSummary.textContent = `${data.num_simulations} simulations across all court surfaces`;
+        this.simulationSummary.textContent =
+            `${data.total_simulations.toLocaleString()} simulated matches ` +
+            `(${data.num_simulations.toLocaleString()} per surface), seed ${data.seed}`;
 
         // Display parameter comparison table
         this.displayParameterTable(data);
 
         // Display surface-specific results
         this.displaySurfaceResults(data);
+
+        // Display live market prices and model differences
+        this.displayMarketComparison(data);
 
         // Display warnings if any
         if (data.fallback_warnings && data.fallback_warnings.length > 0) {
@@ -267,6 +280,358 @@ class TennisSimulator {
 
         this.hideAllSections();
         this.showResultsSection();
+    }
+
+    async loadUpcomingMatches() {
+        const generation = ++this.dashboardGeneration;
+        this.refreshUpcomingBtn.disabled = true;
+        this.upcomingSummary.textContent = 'Loading the next seven days of market-listed matches…';
+        try {
+            const response = await fetch('/api/upcoming?days=7');
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Unable to load matches');
+            if (generation !== this.dashboardGeneration) return;
+            this.renderUpcomingMatches(data, generation);
+        } catch (error) {
+            if (generation !== this.dashboardGeneration) return;
+            this.upcomingMatches.replaceChildren();
+            const message = document.createElement('p');
+            message.className = 'market-unavailable';
+            message.textContent = 'Upcoming matches are temporarily unavailable. You can still run a manual simulation below.';
+            this.upcomingMatches.appendChild(message);
+            this.upcomingSummary.textContent = 'Live schedule unavailable';
+        } finally {
+            if (generation === this.dashboardGeneration) this.refreshUpcomingBtn.disabled = false;
+        }
+    }
+
+    renderUpcomingMatches(data, generation) {
+        this.upcomingMatches.replaceChildren();
+        const errors = data.errors || [];
+        this.upcomingErrors.replaceChildren();
+        if (errors.length > 0) {
+            this.upcomingErrors.style.display = 'block';
+            errors.forEach(error => {
+                const item = document.createElement('div');
+                item.textContent = error;
+                this.upcomingErrors.appendChild(item);
+            });
+        } else {
+            this.upcomingErrors.style.display = 'none';
+        }
+
+        const matches = data.matches || [];
+        this.upcomingSummary.textContent = `${matches.length} market-listed matches · odds refresh about every ${Math.round(data.cache_seconds / 60)} minutes · model data ${data.data_version}`;
+        if (matches.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'market-unavailable';
+            empty.textContent = 'No upcoming ATP match-winner markets were found.';
+            this.upcomingMatches.appendChild(empty);
+            return;
+        }
+
+        const groups = new Map();
+        matches.forEach(match => {
+            const date = new Date(match.start_time);
+            const key = Number.isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString([], {
+                weekday: 'long', month: 'short', day: 'numeric'
+            });
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(match);
+        });
+
+        const simulationTasks = [];
+        groups.forEach((groupMatches, label) => {
+            const section = document.createElement('section');
+            section.className = 'match-day';
+            const heading = document.createElement('h3');
+            heading.className = 'match-day-title';
+            heading.textContent = this.relativeDateLabel(groupMatches[0].start_time, label);
+            section.appendChild(heading);
+            const grid = document.createElement('div');
+            grid.className = 'match-grid';
+            groupMatches.forEach(match => {
+                const rendered = this.createUpcomingMatchCard(match);
+                grid.appendChild(rendered.card);
+                if (rendered.simulationTarget) {
+                    simulationTasks.push({match, target: rendered.simulationTarget});
+                }
+            });
+            section.appendChild(grid);
+            this.upcomingMatches.appendChild(section);
+        });
+        this.loadDashboardSimulations(simulationTasks, generation);
+    }
+
+    relativeDateLabel(startTime, fallback) {
+        const date = new Date(startTime);
+        if (Number.isNaN(date.getTime())) return fallback;
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        const key = value => `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
+        if (key(date) === key(today)) return `Today · ${fallback}`;
+        if (key(date) === key(tomorrow)) return `Tomorrow · ${fallback}`;
+        return fallback;
+    }
+
+    createUpcomingMatchCard(match) {
+        const card = document.createElement('article');
+        card.className = 'upcoming-match-card';
+
+        const meta = document.createElement('div');
+        meta.className = 'upcoming-match-meta';
+        const tournament = document.createElement('span');
+        tournament.textContent = match.tournament || 'ATP match';
+        const time = document.createElement('span');
+        const start = new Date(match.start_time);
+        time.textContent = Number.isNaN(start.getTime()) ? 'Time TBD' : start.toLocaleTimeString([], {
+            hour: 'numeric', minute: '2-digit'
+        });
+        meta.append(tournament, time);
+        card.appendChild(meta);
+
+        if (match.surface) {
+            const surface = document.createElement('div');
+            surface.className = `match-surface match-surface-${match.surface}`;
+            surface.textContent = `${match.surface} · ${match.format === 'best5' ? 'best of 5' : 'best of 3'}`;
+            card.appendChild(surface);
+        }
+
+        const consensus = match.market_comparison?.consensus;
+        const players = document.createElement('div');
+        players.className = 'upcoming-player-list';
+        [match.player1, match.player2].forEach((name, index) => {
+            const row = document.createElement('div');
+            row.className = 'upcoming-player-row';
+            const playerName = document.createElement('strong');
+            playerName.textContent = name;
+            const price = document.createElement('span');
+            const playerMarket = consensus?.[`player${index + 1}`];
+            price.textContent = playerMarket ? this.formatProbability(playerMarket.probability) : '—';
+            row.append(playerName, price);
+            players.appendChild(row);
+        });
+        card.appendChild(players);
+
+        const marketMeta = document.createElement('div');
+        marketMeta.className = 'upcoming-market-meta';
+        const providerNames = (match.market_comparison?.providers || []).map(provider =>
+            provider.provider === 'kalshi' ? 'Kalshi' : 'Polymarket'
+        );
+        marketMeta.textContent = `Market consensus · ${providerNames.join(' + ')}`;
+        card.appendChild(marketMeta);
+
+        const simulationTarget = document.createElement('div');
+        simulationTarget.className = 'dashboard-simulation';
+        if (match.simulation_available) {
+            simulationTarget.textContent = 'Model simulation queued…';
+        } else {
+            simulationTarget.classList.add('dashboard-simulation-unavailable');
+            simulationTarget.textContent = match.simulation_unavailable_reason;
+        }
+        card.appendChild(simulationTarget);
+        return {card, simulationTarget: match.simulation_available ? simulationTarget : null};
+    }
+
+    async loadDashboardSimulations(tasks, generation) {
+        let nextIndex = 0;
+        const worker = async () => {
+            while (nextIndex < tasks.length && generation === this.dashboardGeneration) {
+                const task = tasks[nextIndex++];
+                try {
+                    const response = await fetch(`/api/upcoming/${encodeURIComponent(task.match.id)}/simulation`);
+                    const data = await response.json();
+                    if (!response.ok || data.error) throw new Error(data.error || 'Simulation unavailable');
+                    if (generation === this.dashboardGeneration) this.renderDashboardSimulation(task.target, data);
+                } catch (error) {
+                    if (generation === this.dashboardGeneration) {
+                        task.target.classList.add('dashboard-simulation-unavailable');
+                        task.target.textContent = 'Model simulation unavailable.';
+                    }
+                }
+            }
+        };
+        await Promise.all([worker(), worker()]);
+    }
+
+    renderDashboardSimulation(target, data) {
+        target.replaceChildren();
+        const heading = document.createElement('div');
+        heading.className = 'dashboard-model-heading';
+        heading.textContent = `Model · ${data.surface} · ${data.num_simulations.toLocaleString()} runs`;
+        target.appendChild(heading);
+
+        const probabilities = document.createElement('div');
+        probabilities.className = 'dashboard-model-probabilities';
+        [[data.player1, data.player1_probability], [data.player2, data.player2_probability]].forEach(([name, value]) => {
+            const item = document.createElement('div');
+            const label = document.createElement('span');
+            label.textContent = name;
+            const probability = document.createElement('strong');
+            probability.textContent = this.formatProbability(value);
+            item.append(label, probability);
+            probabilities.appendChild(item);
+        });
+        target.appendChild(probabilities);
+
+        const comparison = data.market_comparison?.model_comparison?.[data.surface];
+        if (comparison) {
+            const difference = document.createElement('div');
+            difference.className = 'dashboard-model-difference';
+            const value = comparison.player1_model_minus_market_pp;
+            difference.textContent = `${data.player1}: model ${value >= 0 ? '+' : ''}${value.toFixed(1)} percentage points vs market`;
+            target.appendChild(difference);
+        }
+
+        const warnings = [...(data.quality?.warnings || []), ...(data.fallback_warnings || [])];
+        if (warnings.length > 0) {
+            const warning = document.createElement('div');
+            warning.className = 'dashboard-quality-warning';
+            warning.textContent = warnings.join(' ');
+            target.appendChild(warning);
+        }
+    }
+
+    displayMarketComparison(data) {
+        const comparison = data.market_comparison;
+        const container = this.marketComparisonContent;
+        container.replaceChildren();
+
+        if (!comparison || !comparison.consensus) {
+            const message = document.createElement('p');
+            message.className = 'market-unavailable';
+            message.textContent = comparison?.notice ||
+                'No exact live match-winner market was found for this matchup.';
+            container.appendChild(message);
+            this.appendProviderStatuses(container, comparison?.providers || []);
+            return;
+        }
+
+        const consensus = comparison.consensus;
+        const consensusPanel = document.createElement('div');
+        consensusPanel.className = 'market-consensus';
+
+        const label = document.createElement('div');
+        label.className = 'market-consensus-label';
+        label.textContent = `Market consensus · ${consensus.provider_count} provider${consensus.provider_count === 1 ? '' : 's'}`;
+        consensusPanel.appendChild(label);
+
+        const probabilities = document.createElement('div');
+        probabilities.className = 'market-consensus-probabilities';
+        [consensus.player1, consensus.player2].forEach(player => {
+            const playerBox = document.createElement('div');
+            const name = document.createElement('span');
+            name.className = 'market-player-name';
+            name.textContent = player.name;
+            const probability = document.createElement('strong');
+            probability.textContent = this.formatProbability(player.probability);
+            playerBox.append(name, probability);
+            probabilities.appendChild(playerBox);
+        });
+        consensusPanel.appendChild(probabilities);
+        container.appendChild(consensusPanel);
+
+        this.appendProviderStatuses(container, comparison.providers || []);
+
+        const modelComparison = comparison.model_comparison || {};
+        if (Object.keys(modelComparison).length > 0) {
+            const table = document.createElement('table');
+            table.className = 'market-model-table';
+            const head = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            ['Surface', `${data.player1_name} model`, 'Market', 'Model − market'].forEach(text => {
+                const th = document.createElement('th');
+                th.textContent = text;
+                headRow.appendChild(th);
+            });
+            head.appendChild(headRow);
+            table.appendChild(head);
+
+            const body = document.createElement('tbody');
+            Object.entries(modelComparison).forEach(([surface, values]) => {
+                const row = document.createElement('tr');
+                const cells = [
+                    surface.charAt(0).toUpperCase() + surface.slice(1),
+                    this.formatProbability(values.player1_model_probability),
+                    this.formatProbability(consensus.player1.probability),
+                    `${values.player1_model_minus_market_pp >= 0 ? '+' : ''}${values.player1_model_minus_market_pp.toFixed(1)} pp`
+                ];
+                cells.forEach(text => {
+                    const td = document.createElement('td');
+                    td.textContent = text;
+                    row.appendChild(td);
+                });
+                body.appendChild(row);
+            });
+            table.appendChild(body);
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'market-table-wrapper';
+            tableWrapper.appendChild(table);
+            container.appendChild(tableWrapper);
+        }
+
+        const notice = document.createElement('p');
+        notice.className = 'market-notice';
+        notice.textContent = comparison.notice;
+        container.appendChild(notice);
+    }
+
+    appendProviderStatuses(container, providers) {
+        if (providers.length === 0) return;
+        const grid = document.createElement('div');
+        grid.className = 'market-provider-grid';
+        providers.forEach(provider => {
+            const card = document.createElement('div');
+            card.className = `market-provider market-provider-${provider.status}`;
+            const heading = document.createElement('div');
+            heading.className = 'market-provider-heading';
+            const providerName = document.createElement('strong');
+            providerName.textContent = provider.provider === 'kalshi' ? 'Kalshi' : 'Polymarket';
+            const status = document.createElement('span');
+            status.className = 'market-status';
+            status.textContent = provider.status;
+            heading.append(providerName, status);
+            card.appendChild(heading);
+
+            if (provider.status === 'available') {
+                const prices = document.createElement('div');
+                prices.className = 'market-provider-prices';
+                prices.textContent = `${provider.player1.name} ${this.formatProbability(provider.player1.probability)} · ` +
+                    `${provider.player2.name} ${this.formatProbability(provider.player2.probability)}`;
+                card.appendChild(prices);
+
+                const detail = document.createElement('div');
+                detail.className = 'market-provider-detail';
+                const details = [];
+                if (provider.volume != null) details.push(`Volume ${provider.volume.toLocaleString()}`);
+                if (provider.provider_updated_at) {
+                    const updated = new Date(provider.provider_updated_at);
+                    if (!Number.isNaN(updated.getTime())) details.push(`Updated ${updated.toLocaleString()}`);
+                }
+                detail.textContent = details.join(' · ');
+                card.appendChild(detail);
+
+                if (provider.source_url) {
+                    const link = document.createElement('a');
+                    link.href = provider.source_url;
+                    link.target = '_blank';
+                    link.rel = 'noopener';
+                    link.textContent = 'View source market';
+                    card.appendChild(link);
+                }
+            } else {
+                const reason = document.createElement('p');
+                reason.textContent = provider.reason;
+                card.appendChild(reason);
+            }
+            grid.appendChild(card);
+        });
+        container.appendChild(grid);
+    }
+
+    formatProbability(value) {
+        return `${(value * 100).toFixed(1)}%`;
     }
 
     displayParameterTable(data) {
@@ -351,8 +716,8 @@ class TennisSimulator {
             thead.innerHTML = `
                 <tr>
                     <th class="parameter-name">Parameter</th>
-                    <th colspan="4" style="text-align: center;">${data.player1_name}</th>
-                    <th colspan="4" style="text-align: center;">${data.player2_name}</th>
+                    <th class="player-parameter-heading" colspan="4"></th>
+                    <th class="player-parameter-heading" colspan="4"></th>
                 </tr>
                 <tr>
                     <th></th>
@@ -366,6 +731,9 @@ class TennisSimulator {
                     <th class="value-label">Performance</th>
                 </tr>
             `;
+            const playerHeadings = thead.querySelectorAll('.player-parameter-heading');
+            playerHeadings[0].textContent = data.player1_name;
+            playerHeadings[1].textContent = data.player2_name;
             table.appendChild(thead);
 
             // Table body
@@ -413,13 +781,13 @@ class TennisSimulator {
         // Expected value
         const expectedCell = document.createElement('td');
         expectedCell.className = 'expected-value';
-        expectedCell.textContent = `${(expected * 100).toFixed(1)}%`;
+        expectedCell.textContent = expected == null ? 'N/A' : `${(expected * 100).toFixed(1)}%`;
         cells.push(expectedCell);
 
         // Observed value
         const observedCell = document.createElement('td');
         observedCell.className = 'observed-value';
-        observedCell.textContent = observed !== undefined ? `${(observed * 100).toFixed(1)}%` : 'N/A';
+        observedCell.textContent = observed == null ? 'N/A' : `${(observed * 100).toFixed(1)}%`;
         cells.push(observedCell);
 
         // Difference and Performance
@@ -427,7 +795,7 @@ class TennisSimulator {
         let performanceClass = 'performance-neutral';
         let performanceText = 'N/A';
 
-        if (observed !== undefined && observed !== null) {
+        if (observed != null && expected != null) {
             const diff = observed - expected;
 
             if (betterDirection === 'higher') {
@@ -490,8 +858,11 @@ class TennisSimulator {
             results.player2Pct.textContent = `${p2WinPct.toFixed(1)}%`;
 
             // Update win records
-            results.player1Record.textContent = `${surfaceData.player1_wins} wins`;
-            results.player2Record.textContent = `${surfaceData.player2_wins} wins`;
+            const [p1Low, p1High] = surfaceData.player1_win_ci95;
+            results.player1Record.textContent =
+                `${surfaceData.player1_wins} wins · 95% MC CI ${(p1Low * 100).toFixed(1)}–${(p1High * 100).toFixed(1)}%`;
+            results.player2Record.textContent =
+                `${surfaceData.player2_wins} wins · 95% MC CI ${((1 - p1High) * 100).toFixed(1)}–${((1 - p1Low) * 100).toFixed(1)}%`;
 
             // Create mini chart for this surface
             this.createSurfaceChart(surface, surfaceData.set_distributions);

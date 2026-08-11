@@ -1,0 +1,48 @@
+{
+  "as_of": "2026-08-10",
+  "generated_at": "2026-08-10T18:23:58.665512+00:00",
+  "minimum_complete_matches": 5,
+  "player_surface_rows": 1704,
+  "source": "https://stats.tennismylife.org/tennis-match-database",
+  "source_files": [
+    {
+      "modified": "2026-07-30T08:15:46.255Z",
+      "name": "2025.csv",
+      "sha256": "2b201025c9cf1a3c7842c289f825a637a28548dea7f92479510a060146df4fff",
+      "url": "https://stats.tennismylife.org/data/2025.csv"
+    },
+    {
+      "modified": "2026-08-03T20:43:33.366Z",
+      "name": "2026.csv",
+      "sha256": "035c4ba9b562d46e18bbabaf264e077d7b3e5003741d2fcbb38b296af637a67e",
+      "url": "https://stats.tennismylife.org/data/2026.csv"
+    },
+    {
+      "modified": "2026-07-30T08:15:47.413Z",
+      "name": "2025_challenger.csv",
+      "sha256": "4cfd6dbfb9889fd812ad489edab231aec749b3cfb02e7b5afea051f05c434929",
+      "url": "https://stats.tennismylife.org/data/2025_challenger.csv"
+    },
+    {
+      "modified": "2026-08-10T13:09:04.691Z",
+      "name": "2026_challenger.csv",
+      "sha256": "ccb2131b97fcbb4a94dfe8c6173c380484c4ae6943853ae0baeb785fb622ef37",
+      "url": "https://stats.tennismylife.org/data/2026_challenger.csv"
+    },
+    {
+      "modified": "2026-08-10T06:40:14.416Z",
+      "name": "ongoing_tourneys.csv",
+      "sha256": "f0b432f5567fc114bc5c371415a8137e68ce578138c6b833c3826388a37a93d7",
+      "url": "https://stats.tennismylife.org/data/ongoing_tourneys.csv"
+    },
+    {
+      "modified": "2026-08-10T13:44:16.995Z",
+      "name": "challenger_ongoing_tourneys.csv",
+      "sha256": "d3673abace61d618e182914e9f6743b2e30b14ce63385cbf053d47b3deecc60f",
+      "url": "https://stats.tennismylife.org/data/challenger_ongoing_tourneys.csv"
+    }
+  ],
+  "source_license": "MIT",
+  "unique_matches": 10066,
+  "window_days": 365
+}

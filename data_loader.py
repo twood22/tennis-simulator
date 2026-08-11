@@ -1,197 +1,181 @@
-import pandas as pd
-import os
-from typing import Dict, Tuple, List, Set
+import csv
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 
 class TennisDataLoader:
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = data_dir
-        self.player_data = {}
-        self.fallback_warnings = {}
-        self.load_all_data()
-    
-    def clean_percentage(self, value):
-        """Convert percentage string to float"""
-        if pd.isna(value) or value == '-' or value == '':
-            return 0.0
-        if isinstance(value, str) and value.endswith('%'):
-            try:
-                return float(value[:-1]) / 100.0
-            except ValueError:
-                return 0.0
-        try:
-            float_val = float(value)
-            return float_val / 100.0 if float_val > 1 else float_val
-        except (ValueError, TypeError):
-            return 0.0
-    
-    def clean_numeric(self, value):
-        """Convert numeric string to float"""
-        if pd.isna(value) or value == '-' or value == '':
-            return 0.0
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return 0.0
+    """Load reviewed Tennis Abstract snapshots without a dataframe dependency."""
 
-    def load_csv_data(self, filename: str) -> pd.DataFrame:
-        """Load and clean CSV data"""
-        filepath = os.path.join(self.data_dir, filename)
-        df = pd.read_csv(filepath)
-        
-        # Clean percentage columns
-        percentage_cols = [col for col in df.columns if 'pct' in col.lower() or 'win_pct' in col.lower()]
-        # Also handle double_fault_per_second_serve which is a percentage but doesn't have 'pct' in the name
-        if 'double_fault_per_second_serve' in df.columns:
-            percentage_cols.append('double_fault_per_second_serve')
-        for col in percentage_cols:
-            if col in df.columns:
-                df[col] = df[col].apply(self.clean_percentage)
-        
-        # Clean numeric columns that might have '-' values
-        numeric_cols = [
-            'dominance_ratio', 'ranking',
-            'first_serve_in_pct', 'first_serve_win_pct', 'second_serve_win_pct',
-            'vs_first_serve_win_pct', 'vs_second_serve_win_pct',
-            'break_point_conversion_pct', 'break_point_save_pct'
-        ]
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = df[col].apply(self.clean_numeric)
-        
-        return df
-    
-    def load_all_data(self):
-        """Load all CSV files and create unified data structure"""
-        # Load all CSV files
-        serve_df = self.load_csv_data("Tennis abstract - serve.csv")
-        return_df = self.load_csv_data("Tennis abstract - return.csv")
-        breaks_df = self.load_csv_data("Tennis abstract - breaks.csv")
-        more_df = self.load_csv_data("Tennis abstract - more.csv")
-        
-        # Get all unique players and surfaces
-        all_players = set()
-        all_surfaces = set()
-        
-        for df in [serve_df, return_df, breaks_df, more_df]:
-            all_players.update(df['player_name'].unique())
-            all_surfaces.update(df['surface'].unique())
-        
-        # Build unified data structure
-        for player in all_players:
-            self.player_data[player] = {}
-            self.fallback_warnings[player] = {}
-            
-            for surface in all_surfaces:
-                # Try to get data for this surface
-                player_surface_data = self._get_player_surface_data(
-                    player, surface, serve_df, return_df, breaks_df, more_df
-                )
-                
-                if player_surface_data:
-                    self.player_data[player][surface] = player_surface_data
-                    self.fallback_warnings[player][surface] = False
-                else:
-                    # Use hard court data as fallback
-                    fallback_data = self._get_player_surface_data(
-                        player, 'hard', serve_df, return_df, breaks_df, more_df
-                    )
-                    if fallback_data:
-                        self.player_data[player][surface] = fallback_data
-                        self.fallback_warnings[player][surface] = True
-                    else:
-                        # No data available for this player
-                        continue
-    
-    def _get_player_surface_data(self, player: str, surface: str, serve_df, return_df, breaks_df, more_df) -> Dict:
-        """Get all statistics for a player on a specific surface"""
-        serve_data = serve_df[(serve_df['player_name'] == player) & (serve_df['surface'] == surface)]
-        return_data = return_df[(return_df['player_name'] == player) & (return_df['surface'] == surface)]
-        breaks_data = breaks_df[(breaks_df['player_name'] == player) & (breaks_df['surface'] == surface)]
-        more_data = more_df[(more_df['player_name'] == player) & (more_df['surface'] == surface)]
-        
-        if serve_data.empty or return_data.empty or breaks_data.empty or more_data.empty:
+    DISPLAY_SURFACES = ("hard", "clay", "grass")
+    FILES = {
+        "serve": "Tennis abstract - serve.csv",
+        "return": "Tennis abstract - return.csv",
+        "breaks": "Tennis abstract - breaks.csv",
+        "more": "Tennis abstract - more.csv",
+    }
+
+    def __init__(self, data_dir: Optional[str] = None):
+        self.data_dir = Path(data_dir) if data_dir else Path(__file__).resolve().parent / "data"
+        self.player_data: Dict[str, Dict[str, Dict]] = {}
+        self.fallback_sources: Dict[str, Dict[str, Optional[str]]] = {}
+        self.load_all_data()
+
+    @staticmethod
+    def clean_percentage(value) -> Optional[float]:
+        if value is None:
             return None
-        
-        serve_row = serve_data.iloc[0]
-        return_row = return_data.iloc[0]
-        breaks_row = breaks_data.iloc[0]
-        more_row = more_data.iloc[0]
-        
-        # Combine all statistics
+        text = str(value).strip()
+        if text in ("", "-"):
+            return None
+        try:
+            if text.endswith("%"):
+                return float(text[:-1]) / 100.0
+            number = float(text)
+            return number / 100.0 if number > 1 else number
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def clean_numeric(value) -> Optional[float]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if text in ("", "-"):
+            return None
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            return None
+
+    def load_csv_data(self, filename: str) -> Dict[Tuple[str, str], Dict[str, str]]:
+        filepath = self.data_dir / filename
+        if not filepath.is_file():
+            raise FileNotFoundError(f"Missing tennis data file: {filepath}")
+
+        rows: Dict[Tuple[str, str], Dict[str, str]] = {}
+        with filepath.open(newline="", encoding="utf-8-sig") as handle:
+            reader = csv.DictReader(handle)
+            required = {"player_name", "surface", "ranking", "matches_played"}
+            missing = required.difference(reader.fieldnames or [])
+            if missing:
+                raise ValueError(f"{filename} missing columns: {sorted(missing)}")
+            for row in reader:
+                key = (row["player_name"].strip(), row["surface"].strip().lower())
+                if key in rows:
+                    raise ValueError(f"Duplicate player/surface row in {filename}: {key}")
+                rows[key] = row
+        return rows
+
+    def load_all_data(self) -> None:
+        datasets = {name: self.load_csv_data(filename) for name, filename in self.FILES.items()}
+        players = sorted({player for rows in datasets.values() for player, _ in rows})
+        surfaces = (*self.DISPLAY_SURFACES, "all")
+
+        for player in players:
+            self.player_data[player] = {}
+            self.fallback_sources[player] = {}
+            for requested_surface in surfaces:
+                source_surface = self._choose_source_surface(
+                    player, requested_surface, datasets
+                )
+                if source_surface is None:
+                    continue
+                stats = self._get_player_surface_data(player, source_surface, datasets)
+                if stats is None:
+                    continue
+                stats["source_surface"] = source_surface
+                self.player_data[player][requested_surface] = stats
+                self.fallback_sources[player][requested_surface] = (
+                    None if source_surface == requested_surface else source_surface
+                )
+
+    @staticmethod
+    def _choose_source_surface(player: str, requested_surface: str,
+                               datasets: Dict[str, Dict]) -> Optional[str]:
+        candidates = [requested_surface]
+        if requested_surface != "all":
+            candidates.extend(["all", "hard"])
+        for surface in dict.fromkeys(candidates):
+            key = (player, surface)
+            if all(key in rows for rows in datasets.values()):
+                return surface
+        return None
+
+    def _get_player_surface_data(self, player: str, surface: str,
+                                 datasets: Dict[str, Dict]) -> Optional[Dict]:
+        key = (player, surface)
+        try:
+            serve = datasets["serve"][key]
+            returning = datasets["return"][key]
+            breaks = datasets["breaks"][key]
+            more = datasets["more"][key]
+        except KeyError:
+            return None
+
         stats = {
-            # Serve statistics
-            'ranking': serve_row['ranking'],
-            'first_serve_in_pct': serve_row['first_serve_in_pct'],
-            'first_serve_win_pct': serve_row['first_serve_win_pct'],
-            'second_serve_win_pct': serve_row['second_serve_win_pct'],
-            'double_fault_per_second_serve': serve_row['double_fault_per_second_serve'],
-            'ace_pct': serve_row['ace_pct'],
-            'double_fault_pct': serve_row['double_fault_pct'],
-            
-            # Return statistics
-            'vs_first_serve_win_pct': return_row['vs_first_serve_win_pct'],
-            'vs_second_serve_win_pct': return_row['vs_second_serve_win_pct'],
-            'return_points_won': return_row['return_points_won'],
-            
-            # Break point statistics
-            'break_point_conversion_pct': breaks_row['break_point_conversion_pct'],
-            'break_point_save_pct': breaks_row['break_point_save_pct'],
-            
-            # Additional statistics
-            'dominance_ratio': more_row['dominance_ratio'],
-            'total_points_won_pct': more_row['total_points_won_pct'],
-            'tiebreak_win_pct': more_row['tiebreak_win_pct'],
-            'set_win_pct': more_row['set_win_pct'],
-            'game_win_pct': more_row['game_win_pct']
+            "ranking": self.clean_numeric(serve["ranking"]),
+            "matches_played": self.clean_numeric(serve["matches_played"]),
+            "first_serve_in_pct": self.clean_percentage(serve["first_serve_in_pct"]),
+            "first_serve_win_pct": self.clean_percentage(serve["first_serve_win_pct"]),
+            "second_serve_win_pct": self.clean_percentage(serve["second_serve_win_pct"]),
+            "second_serve_win_pct_in_play": self.clean_percentage(serve["second_serve_win_pct_in_play"]),
+            "double_fault_per_second_serve": self.clean_percentage(serve["double_fault_per_second_serve"]),
+            "ace_pct": self.clean_percentage(serve["ace_pct"]),
+            "double_fault_pct": self.clean_percentage(serve["double_fault_pct"]),
+            "vs_first_serve_win_pct": self.clean_percentage(returning["vs_first_serve_win_pct"]),
+            "vs_second_serve_win_pct": self.clean_percentage(returning["vs_second_serve_win_pct"]),
+            "vs_double_fault_pct": self.clean_percentage(returning["vs_double_fault_pct"]),
+            "return_points_won": self.clean_percentage(returning["return_points_won"]),
+            "median_opponent_rank": self.clean_numeric(returning.get("median_opponent_rank")),
+            "mean_opponent_rank": self.clean_numeric(returning.get("mean_opponent_rank")),
+            "break_point_conversion_pct": self.clean_percentage(breaks["break_point_conversion_pct"]),
+            "break_point_save_pct": self.clean_percentage(breaks["break_point_save_pct"]),
+            "break_points_converted": self.clean_numeric(breaks["break_points_converted"]),
+            "break_point_chances": self.clean_numeric(breaks["break_point_chances"]),
+            "break_points_saved": self.clean_numeric(breaks["break_points_saved"]),
+            "break_points_faced": self.clean_numeric(breaks["break_points_faced"]),
+            "dominance_ratio": self.clean_numeric(more["dominance_ratio"]),
+            "total_points_won_pct": self.clean_percentage(more["total_points_won_pct"]),
+            "tiebreak_win_pct": self.clean_percentage(more["tiebreak_win_pct"]),
+            "set_win_pct": self.clean_percentage(more["set_win_pct"]),
+            "game_win_pct": self.clean_percentage(more["game_win_pct"]),
         }
-        
+        required_model_fields = (
+            "first_serve_in_pct", "first_serve_win_pct", "second_serve_win_pct",
+            "double_fault_per_second_serve", "vs_first_serve_win_pct",
+            "vs_second_serve_win_pct", "dominance_ratio",
+        )
+        if any(stats[field] is None for field in required_model_fields):
+            return None
         return stats
-    
+
     def get_player_stats(self, player_name: str, surface: str) -> Tuple[Dict, bool]:
-        """Get player statistics for a surface, returns (stats, is_fallback)"""
         if player_name not in self.player_data:
             raise ValueError(f"Player {player_name} not found in data")
-        
+        surface = surface.lower()
         if surface not in self.player_data[player_name]:
             raise ValueError(f"Surface {surface} not available for player {player_name}")
-        
-        stats = self.player_data[player_name][surface]
-        is_fallback = self.fallback_warnings[player_name][surface]
-        
-        return stats, is_fallback
-    
+        fallback = self.fallback_sources[player_name][surface] is not None
+        return self.player_data[player_name][surface], fallback
+
     def get_all_players(self) -> List[Dict]:
-        """Get list of all players with their rankings and available surfaces"""
         players = []
         for player_name, surfaces_data in self.player_data.items():
-            if not surfaces_data:
+            available = [surface for surface in self.DISPLAY_SURFACES if surface in surfaces_data]
+            if not available:
                 continue
-                
-            # Get ranking from any available surface (they should be the same)
-            ranking = None
-            available_surfaces = []
-            
-            for surface, stats in surfaces_data.items():
-                if stats:
-                    available_surfaces.append(surface)
-                    if ranking is None:
-                        ranking = stats['ranking']
-            
-            if available_surfaces:
-                players.append({
-                    'name': player_name,
-                    'ranking': ranking,
-                    'surfaces': available_surfaces
-                })
-        
-        # Sort by ranking
-        players.sort(key=lambda x: x['ranking'])
+            ranking_stats = surfaces_data.get("all") or surfaces_data[available[0]]
+            ranking = ranking_stats["ranking"]
+            players.append({
+                "name": player_name,
+                "ranking": int(ranking) if ranking is not None else None,
+                "surfaces": available,
+            })
+        players.sort(key=lambda item: (item["ranking"] is None, item["ranking"] or 10**9, item["name"]))
         return players
-    
-    def get_fallback_warning(self, player_name: str, surface: str) -> str:
-        """Get fallback warning message if applicable"""
-        if (player_name in self.fallback_warnings and 
-            surface in self.fallback_warnings[player_name] and 
-            self.fallback_warnings[player_name][surface]):
-            return f"{player_name} using hard court data for {surface} surface"
+
+    def get_fallback_warning(self, player_name: str, surface: str) -> Optional[str]:
+        source = self.fallback_sources.get(player_name, {}).get(surface)
+        if source:
+            return f"{player_name} uses {source}-surface data for {surface}"
         return None

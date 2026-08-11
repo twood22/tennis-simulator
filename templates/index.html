@@ -23,12 +23,38 @@
                     <div class="tennis-ball"></div>
                     <h1>Tennis Simulator</h1>
                 </div>
-                <p class="tagline">Monte Carlo match predictions using real player statistics</p>
+                <p class="tagline">Upcoming tennis simulations compared with live prediction markets</p>
             </div>
         </header>
 
         <!-- Main Content -->
         <main class="main">
+            <!-- Upcoming Matches Dashboard -->
+            <section class="card upcoming-card" id="upcomingDashboard">
+                <div class="card-header upcoming-header">
+                    <div>
+                        <h2>
+                            <i data-feather="calendar"></i>
+                            Upcoming Matches
+                        </h2>
+                        <p id="upcomingSummary">Loading the next seven days of market-listed matches…</p>
+                    </div>
+                    <button type="button" class="compact-btn" id="refreshUpcomingBtn">
+                        <i data-feather="refresh-cw"></i>
+                        Refresh
+                    </button>
+                </div>
+                <div class="card-content">
+                    <div id="upcomingErrors" class="upcoming-errors" style="display: none;"></div>
+                    <div id="upcomingMatches" class="upcoming-matches">
+                        <div class="dashboard-loading">
+                            <div class="spinner"></div>
+                            <p>Finding upcoming ATP matches…</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Simulation Setup Card -->
             <div class="card simulation-card" id="simulationSetup">
                 <div class="card-header">
@@ -80,7 +106,7 @@
                                 <i data-feather="sliders"></i>
                                 Settings
                             </h3>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                            <div class="settings-grid">
                                 <!-- Format Selection -->
                                 <div>
                                     <label style="display: block; font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 0.5rem;">Match Format</label>
@@ -109,10 +135,10 @@
                                         <div class="number-input-wrapper">
                                             <input type="number" id="numTrials" min="100" max="10000" value="1000" step="100" class="number-input">
                                             <div class="input-controls">
-                                                <button type="button" class="input-btn" id="increaseTrials">
+                                                <button type="button" class="input-btn" id="increaseTrials" aria-label="Increase simulations">
                                                     <i data-feather="plus"></i>
                                                 </button>
-                                                <button type="button" class="input-btn" id="decreaseTrials">
+                                                <button type="button" class="input-btn" id="decreaseTrials" aria-label="Decrease simulations">
                                                     <i data-feather="minus"></i>
                                                 </button>
                                             </div>
@@ -268,6 +294,22 @@
                     </div>
                 </div>
 
+                <!-- Prediction Market Comparison -->
+                <div class="card market-card">
+                    <div class="card-header">
+                        <h3>
+                            <i data-feather="activity"></i>
+                            Live Prediction Market Comparison
+                        </h3>
+                        <p>Read-only match-winner prices from Kalshi and Polymarket</p>
+                    </div>
+                    <div class="card-content">
+                        <div id="marketComparisonContent" class="market-comparison-content">
+                            Market comparison unavailable.
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Parameter Comparison Table -->
                 <div class="card parameters-card">
                     <div class="card-header">
@@ -329,7 +371,7 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">
-                <p>Statistics from <a href="https://tennisabstract.com" target="_blank" rel="noopener">Tennis Abstract</a></p>
+                <p>Match data from <a href="https://stats.tennismylife.org/tennis-match-database" target="_blank" rel="noopener">TennisMyLife</a></p>
                 <div class="footer-links">
                     <a href="https://github.com/twood22/tennis-simulator" class="footer-link" target="_blank" rel="noopener">GitHub</a>
                 </div>
