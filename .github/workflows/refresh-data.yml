@@ -24,17 +24,20 @@ jobs:
         with:
           python-version: "3.12"
       - name: Refresh and validate data
+        id: refresh
         run: |
           python scripts/refresh_data.py
           python -m unittest discover -s tests -v
+          if git diff --quiet -- data; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Open or update refresh pull request
+        if: steps.refresh.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet -- data; then
-            echo "No data changes"
-            exit 0
-          fi
           branch="automation/refresh-tennis-data"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -46,3 +49,11 @@ jobs:
             --title "data: refresh rolling tennis statistics" \
             --body "Automated rolling 52-week refresh from the MIT-licensed TennisMyLife match database. Tests passed before this pull request was opened." \
             || gh pr edit "$branch" --body "Automated rolling 52-week refresh from the MIT-licensed TennisMyLife match database. Tests passed before this pull request was updated."
+      - name: Install Fly CLI
+        if: steps.refresh.outputs.changed == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - name: Deploy validated refreshed data
+        if: steps.refresh.outputs.changed == 'true'
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
