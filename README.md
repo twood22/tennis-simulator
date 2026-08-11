@@ -16,7 +16,7 @@ Live site: [twood-tennis-simulator.fly.dev](https://twood-tennis-simulator.fly.d
 - live, read-only Kalshi and Polymarket match-winner comparisons
 - progressive, cached dashboard simulations with data-quality warnings
 - rolling 52-week data built from main-tour and Challenger matches
-- a daily, reviewed data-refresh pull request
+- a daily, tested data refresh with an auditable snapshot branch and live deploy
 
 This is an exploratory model, not betting advice. The confidence interval only
 measures Monte Carlo sampling error; it does not capture model or data error.
@@ -56,11 +56,11 @@ validates the staged output through the production loader, and only then replace
 the files in `data/`. Provenance, upstream timestamps, and SHA-256 hashes are
 written to `data/metadata.json`.
 
-The GitHub Actions workflow runs daily and can also be dispatched manually. It
-opens or updates a pull request instead of modifying the default branch directly.
-Repository settings must allow GitHub Actions to create pull requests. Scheduled
-workflows may be delayed during high load and can be disabled after prolonged
-repository inactivity, so the manual trigger is retained.
+The GitHub Actions workflow runs daily and can also be dispatched manually. When
+the validated data changes, it updates the `automation/refresh-tennis-data`
+snapshot branch and deploys that exact tested snapshot to Fly without modifying
+`main`. Scheduled workflows may be delayed during high load and can be disabled
+after prolonged repository inactivity, so the manual trigger is retained.
 
 ## Model outline
 
